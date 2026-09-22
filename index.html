@@ -369,8 +369,17 @@
 
 
   /* ---- the white paper, embedded ---- */
-  #whitepaper { display: none; }
-  #whitepaper.open { display: block; }
+  /* ---- tabs (same shape as the FUEL dashboard) ---- */
+  nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin: 0 0 32px; overflow-x: auto; }
+  nav.tabs button {
+    background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-dim);
+    padding: 10px 18px; font-family: var(--sans); font-size: 14px; white-space: nowrap; cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease;
+  }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button[aria-selected="true"] { color: var(--neon); border-bottom-color: var(--neon); }
+  .tab { display: none; }
+  .tab.on { display: block; }
   #whitepaper .wp { font-family: var(--serif); font-size: 17px; line-height: 1.65; max-width: 760px; margin: 0 auto; }
   #whitepaper .wp .lede { font-size: 18px; margin: 0 0 12px; }
   #whitepaper .wp .asof { font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); margin-bottom: 8px; }
@@ -519,6 +528,16 @@
 
   <div class="assetnote" id="setupNote" hidden></div>
 
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" aria-selected="true" data-tab="auction">Auction</button>
+    <button role="tab" aria-selected="false" data-tab="staking">Staking</button>
+    <button role="tab" aria-selected="false" data-tab="more">$MORE</button>
+    <button role="tab" aria-selected="false" data-tab="charts">Charts</button>
+    <button role="tab" aria-selected="false" data-tab="stats">Stats</button>
+    <button role="tab" aria-selected="false" data-tab="whitepaper">White paper</button>
+  </nav>
+
+  <div class="tab on" id="tab-auction">
   <!-- ============================ mint ============================ -->
   <section>
     <h2>ENTER TODAY'S AUCTION</h2>
@@ -616,6 +635,9 @@
   </section>
 
   <!-- ============================ staking ============================ -->
+  </div>
+
+  <div class="tab" id="tab-staking">
   <section>
     <h2>STAKING</h2>
     <div class="panel">
@@ -706,6 +728,9 @@
   </section>
 
   <!-- ============================ burn ============================ -->
+  </div>
+
+  <div class="tab" id="tab-more">
   <section>
     <h2><span class="more-mark" role="img" aria-label="$MORE"></span> buy and burn</h2>
     <div class="panel">
@@ -794,6 +819,9 @@
   </section>
 
   <!-- ============================ emission ============================ -->
+  </div>
+
+  <div class="tab" id="tab-charts">
   <section>
     <h2>Emission curve</h2>
     <div class="panel">
@@ -820,6 +848,9 @@
   </section>
 
   <!-- ============================ supply ============================ -->
+  </div>
+
+  <div class="tab" id="tab-stats">
   <section>
     <h2>Stats</h2>
     <div class="panel">
@@ -843,12 +874,15 @@
     </div>
   </section>
 
+  </div>
+
+  <div class="tab" id="tab-whitepaper">
   <!-- ============================ white paper ============================ -->
   <section id="whitepaper">
     <h2>White paper</h2>
     <div class="panel">
       <div class="wp">
-        <div class="wp-close"><button class="sm" id="wpClose">Close</button></div>
+        <div class="wp-close"><button class="sm" id="wpClose">Back to the auction</button></div>
     <p class="lede">A 1,000-day daily auction on Robinhood Chain (chain 4663). Supply is
       hard-capped at 100,000,000 PAMP with no premint, no team allocation and no owner.
       Every entry is worth a flat 0.0001 ETH: 40% of it is $FUEL, burned in the same
@@ -1107,6 +1141,7 @@
       </div>
     </div>
   </section>
+  </div>
 
   <footer>
     <div class="footlinks">
@@ -2771,15 +2806,32 @@ wpDraw("chartEmission", WP_EMISSION, 0, null);
 wpDraw("chartCumulative", WP_CUMULATIVE, 0, 100000000);
 
 })();
-function openWhitepaper(open) {
-  const el = $("whitepaper");
-  el.classList.toggle("open", open);
-  if (open) { el.scrollIntoView({ behavior: "smooth", block: "start" }); if (location.hash !== "#whitepaper") history.replaceState(null, "", "#whitepaper"); }
-  else if (location.hash === "#whitepaper") history.replaceState(null, "", location.pathname + location.search);
+/* ---- tabs: one group of sections visible at a time; the hash remembers which ---- */
+const TABS = ["auction", "staking", "more", "charts", "stats", "whitepaper"];
+function selectTab(name, { scroll = false } = {}) {
+  if (!TABS.includes(name)) name = "auction";
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id === "tab-" + name));
+  const want = name === "auction" ? "" : "#" + name;
+  if (location.hash !== want && !(name === "auction" && !location.hash)) history.replaceState(null, "", location.pathname + location.search + want);
+  if (scroll) $("tabs").scrollIntoView({ behavior: "smooth", block: "start" });
 }
+document.querySelectorAll("nav.tabs button").forEach(b => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+function tabFromHash() {
+  const h = location.hash.slice(1);
+  if (h.startsWith("wp-")) return "whitepaper";
+  return TABS.includes(h) ? h : "auction";
+}
+selectTab(tabFromHash());
+window.addEventListener("hashchange", () => {
+  const h = location.hash.slice(1);
+  selectTab(tabFromHash());
+  if (h.startsWith("wp-")) { const t = document.getElementById(h); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }
+});
+function openWhitepaper(open) { selectTab(open ? "whitepaper" : "auction", { scroll: true }); }
 $("wpOpen").addEventListener("click", e => { e.preventDefault(); openWhitepaper(true); });
-$("wpClose").addEventListener("click", () => { openWhitepaper(false); $("wpOpen").scrollIntoView({ behavior: "smooth", block: "center" }); });
-if (location.hash === "#whitepaper") openWhitepaper(true);
+$("wpClose").addEventListener("click", () => openWhitepaper(false));
+if (location.hash.slice(1).startsWith("wp-")) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView({ block: "start" }); }
 // links inside the paper's contents list stay inside the page
 $("whitepaper").addEventListener("click", e => {
   const a = e.target.closest('a[href^="#wp-"]'); if (!a) return;
