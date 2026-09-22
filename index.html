@@ -109,7 +109,8 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 22px 28px; justify-items: stretch; }
   .cell { text-align: left; min-width: 0; }
   .cell .k { display: block; font-family: var(--sans); font-size: 13px; color: var(--text-dim); margin-bottom: 5px; }
-  .cell .v { font-size: 21px; color: var(--neon); font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 7px; word-break: break-all; }
+  .cell .v { font-size: 21px; color: var(--neon); font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; overflow-wrap: anywhere; }
+  .pamp-mark, .more-mark, .fuel-ico { white-space: nowrap; }
   .cell .v.burn { color: var(--amber); }
   .cell .note { display: block; font-family: var(--sans); font-size: 12px; color: var(--text-dim); margin-top: 4px; }
 
@@ -277,6 +278,22 @@
   /* The FUEL pump icon beside its heading, sized like the heading's capitals. */
   /* 1.5em tall, centred on the capitals: cap centre is 0.5em up, so the bottom sits 0.25em down. */
   h2 .more-mark { width: 4.062em; height: 1.578em; vertical-align: -0.34em; }
+
+  /* ---- the entry order box ---- */
+  .order-box { background: var(--bg); border: 1px solid var(--line); padding: 6px 16px 10px; }
+  .order-box .line { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-family: var(--sans); font-size: 13.5px; color: var(--text-dim); }
+  .order-box .line strong { font-family: var(--serif); font-weight: 400; font-size: 19px; color: var(--neon); white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+  .order-box .line strong .muted { font-family: var(--sans); font-size: 12.5px; color: var(--text-dim); margin-left: 6px; }
+  .order-box .line.sub { justify-content: flex-end; padding: 0 0 9px; font-size: 12px; border-bottom: 1px dashed var(--line); }
+  .order-box .line.total { border-bottom: 0; border-top: 1px solid var(--line); margin-top: 2px; padding-top: 12px; color: var(--text); }
+  .order-box .line.total strong { font-size: 22px; }
+  .split { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .split .pill { font-family: var(--sans); font-size: 12px; color: var(--text-dim); border: 1px solid var(--line); padding: 4px 10px; white-space: nowrap; }
+  .split .pill b { color: var(--text); font-weight: 500; }
+  details.more { margin-top: 10px; font-family: var(--sans); }
+  details.more summary { cursor: pointer; font-size: 13px; color: var(--accent-dim); list-style: none; }
+  details.more summary::before { content: "▸ "; } details.more[open] summary::before { content: "▾ "; }
+  details.more .hint { margin-top: 8px; }
 
   /* ---- staking ---- */
   /* the unlock-date picker, as on the $MORE staking dashboard */
@@ -522,17 +539,15 @@
             <button class="pct-btn" data-q="1000">1000</button>
           </div>
         </div>
-        <div class="field">
-          <label>What it costs</label>
-          <div class="grid" style="gap:16px 20px">
-            <div class="cell"><span class="k">ETH</span><span class="v" id="cost">—</span><span class="note">the 60% that is paid in ETH</span></div>
-            <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL <span class="derived" title="0.00004 ETH worth of $FUEL per entry at the FUEL/WETH pool's 10-second average price, floored by its 15-minute average, read from the auction contract. The amount follows $FUEL's market price: if $FUEL halves, an entry takes twice as much.">used</span></span><span class="v" id="costFuel">—</span><span class="note" id="costFuelNote">—</span></div>
-            <div class="cell">
-              <span class="k">Your PAMP <span class="derived" title="If the day closed right now with your entries included. It falls as other people enter, and is only final once the day closes.">if the day closed now</span></span>
-              <span class="v" id="projShare">—</span>
-            </div>
+        <div class="field order">
+          <label>Your order</label>
+          <div class="order-box">
+            <div class="line"><span>ETH to send</span><strong id="cost">—</strong></div>
+            <div class="line"><span><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL from your wallet <span class="derived" title="0.00004 ETH worth of $FUEL per entry at the FUEL/WETH pool's 10-second average price, floored by its 15-minute average, read from the auction contract. The amount follows $FUEL's market price: if $FUEL halves, an entry takes twice as much.">priced by value</span></span><strong id="costFuel">—</strong></div>
+            <div class="line sub" id="costFuelNote">—</div>
+            <div class="line total"><span>You would get <span class="derived" title="If the day closed right now with your entries included. It falls as other people enter, and is only final once the day closes.">if the day closed now</span></span><strong id="projShare">—</strong></div>
           </div>
-          <div class="preview" id="splitPreview"></div>
+          <div class="split" id="splitPreview"></div>
           <div class="hint" id="priceLine" style="margin-top:10px"></div>
         </div>
       </div>
@@ -545,19 +560,22 @@
       </div>
 
       <div class="hint">
-        Each entry is 0.00006 ETH plus 0.00004 ETH worth of <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL. The contract takes the
-        <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL from your wallet and sends it straight to 0x…dEaD (one unlimited approval first;
-        each entry can only take what it costs when it lands). Hold no <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL? Buy it on the
-        FUEL/WETH pool. The
-        <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL amount is priced by value, not by count — if <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL drops 90%, an entry takes ten
-        times as much of it. The price is the FUEL/WETH pool's own 10-second average, floored
-        by its 15-minute average: a fast drop is charged at once, a price pushed up for a few
-        blocks does not make entries cheaper, and entries never pause for a price move. The
-        contract also logs that price on chain, at most once every 10 seconds, whenever an
-        entry lands or anyone calls <span class="mono">poke()</span>. The token price is not
-        fixed: the more entries a day sells, the less each one is worth, and everyone who enters
-        on a day gets the same rate. Buy more than 1000 by sending another transaction.
+        Each entry is worth 0.0001 ETH: 0.00006 ETH sent with the transaction plus 0.00004 ETH worth
+        of <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL taken from your wallet (one unlimited approval first). Everyone who enters on a
+        day gets the same rate; the more entries a day sells, the fewer PAMP each one receives.
+        Buy more than 1000 by sending another transaction.
       </div>
+      <details class="more">
+        <summary>How the $FUEL amount is priced</summary>
+        <div class="hint">
+          The $FUEL amount follows its market price: if $FUEL drops 90%, an entry takes ten times as
+          much of it. The price is the FUEL/WETH pool's own 10-second average, floored by its
+          15-minute average: a fast drop is charged at once, a price pushed up for a few blocks does
+          not make entries cheaper, and entries never pause for a price move. Each entry can only
+          take what it costs when it lands, capped by the amount you saw. The contract logs the
+          price it charged on chain, at most once every 10 seconds.
+        </div>
+      </details>
     </div>
   </section>
 
@@ -803,12 +821,14 @@
 
   <!-- ============================ supply ============================ -->
   <section>
-    <h2>Supply and split</h2>
+    <h2>Stats</h2>
     <div class="panel">
       <div class="grid">
         <div class="cell"><span class="k"><span class="pamp-mark">$PAMP</span> minted</span><span class="v" id="sMinted">—</span><span class="note" id="sOfCap">—</span></div>
         <div class="cell"><span class="k">Total value entered</span><span class="v" id="sRaised">—</span><span class="note" id="sMintCount">—</span></div>
-        <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL used</span><span class="v" id="sFuel">—</span><span class="note" id="sFuelNote">40% — used on entry</span></div>
+        <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL burned by the $PAMP protocol</span><span class="v" id="sFuel">—</span><span class="note" id="sFuelNote">40% of every entry</span></div>
+        <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL burned by the $FUEL protocol</span><span class="v" id="sFuelOther">—</span><span class="note" id="sFuelOtherNote">its own buy-and-burn</span></div>
+        <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL burned by all protocols</span><span class="v" id="sFuelAll">—</span><span class="note" id="sFuelAllNote">$PAMP + $FUEL protocol</span></div>
         <div class="cell"><span class="k">To the <span class="more-mark" role="img" aria-label="$MORE"></span> burn</span><span class="v" id="sToBurn">—</span><span class="note">20%</span></div>
         <div class="cell"><span class="k">To the PAMP fund</span><span class="v" id="sToDev">—</span><span class="note">40% — liquidity and airdrops to wallets with entries</span></div>
       </div>
@@ -1139,6 +1159,9 @@ const A = {
   genesisDefault: 1789941600,
   // The FUEL/WETH V3 pool that prices the $FUEL share of every entry.
   fuelPool: "0xFF40c99525ffA6b6cf79ecbE370eF7C887D68F69",
+  // The $FUEL protocol's own buy-and-burn contract; its running total is the
+  // "burned by the $FUEL protocol" figure in the stats section.
+  fuelBuyBurn: "0x1f8e137117f78EF1EA84235F3E5423c46bF2D4A2",
   // $PAMP staking (a fork of the $MORE staking contract), deployed with the token.
   staking:  "0x6ebf3eafc1fd08a1e51ec3a7f7d254bae1a9370e",
   burner:   "0xae399b78eA729A4730c65b8D368cd6F280f95728",
@@ -1305,6 +1328,7 @@ const ABI = {
   ],
   erc20: ["function balanceOf(address) view returns (uint256)", "function totalSupply() view returns (uint256)",
           "function allowance(address,address) view returns (uint256)", "function approve(address,uint256) returns (bool)"],
+  fuelBuyBurn: ["function totalTokenBurnt() view returns (uint256)"],
   multicall: ["function aggregate3((address target,bool allowFailure,bytes callData)[] calls) payable returns ((bool success,bytes returnData)[] returnData)"]
 };
 const I = {
@@ -1314,7 +1338,8 @@ const I = {
   token:   new E.Interface(ABI.token),
   erc20:   new E.Interface(ABI.erc20),
   moreSwap: new E.Interface(ABI.moreSwap),
-  staking: new E.Interface(ABI.staking)
+  staking: new E.Interface(ABI.staking),
+  fuelBuyBurn: new E.Interface(ABI.fuelBuyBurn)
 };
 /* One interface that knows every custom error, purely so a revert decodes to
    something a person can read instead of a selector. */
@@ -1615,7 +1640,8 @@ async function loadLive() {
     call(A.auction, I.auction, "latestSample"),
     call(A.staking, I.staking, "totalStaked"),     call(A.staking, I.staking, "stakers"),
     call(A.staking, I.staking, "stakeCounter"),    call(A.staking, I.staking, "totalDistributed"),
-    call(A.staking, I.staking, "pendingToDistribute")
+    call(A.staking, I.staking, "pendingToDistribute"),
+    call(A.fuelBuyBurn, I.fuelBuyBurn, "totalTokenBurnt")
   ]);
   const L = S.L;
   const t = dec(I.auction, "today", r[0]);
@@ -1654,6 +1680,7 @@ async function loadLive() {
   L.stOpen    = dec(I.staking, "stakeCounter", r[26]);
   L.stDist    = dec(I.staking, "totalDistributed", r[27]);
   L.stPending = dec(I.staking, "pendingToDistribute", r[28]);
+  L.fuelProto = dec(I.fuelBuyBurn, "totalTokenBurnt", r[29]);
 
   renderHeader(); renderToday(); renderBurn(); renderSupply(); renderMoreSwap(); renderStakingStats();
   if (L.msEth !== null && !S.msScanBusy) {
@@ -2490,8 +2517,22 @@ function renderSupply() {
   $("sRaised").textContent = fmtEth(entered);
   $("sMintCount").textContent = entered !== null ? `${nf(Number(L.totalMints))} entries created all-time${fmtUsd(usdOf(entered, S.usd.eth)) ? " · ≈ " + fmtUsd(usdOf(entered, S.usd.eth)) : ""}` : "—";
   $("sFuel").textContent = fmtTok(L.pampFuel);
-  const fUsd = fmtUsd(usdOf(L.pampFuel, S.usd.fuel));
-  $("sFuelNote").textContent = `40% — used on entry${fUsd ? " · ≈ " + fUsd : ""}`;
+  const fUsd = L.pampFuel && L.pampFuel > 0n ? fmtUsd(usdOf(L.pampFuel, S.usd.fuel)) : null;
+  $("sFuelNote").textContent = `40% of every entry${fUsd ? " · ≈ " + fUsd : ""}`;
+  // The $FUEL protocol's own buy-and-burn total, read from its contract, next to ours.
+  const other = L.fuelProto;
+  $("sFuelOther").textContent = fmtTok(other);
+  const oUsd = other && other > 0n ? fmtUsd(usdOf(other, S.usd.fuel)) : null;
+  const both = (other ?? 0n) + (L.pampFuel ?? 0n);
+  const ratio = (L.pampFuel && other && other > 0n) ? (Number((L.pampFuel * 100n) / other) / 100) : null;
+  $("sFuelOtherNote").textContent = other !== null && other !== undefined
+    ? `its own buy-and-burn${oUsd ? " · ≈ " + oUsd : ""}${ratio !== null ? ` · $PAMP has burned ${ratio.toFixed(2)}× as much` : ""}`
+    : "its own buy-and-burn";
+  $("sFuelNote").textContent = `40% of every entry${fUsd ? " · ≈ " + fUsd : ""}${both > 0n && L.pampFuel ? ` · ${(Number((L.pampFuel * 10000n) / both) / 100).toFixed(1)}% of all $FUEL burned by both` : ""}`;
+  const haveBoth = L.pampFuel !== null && L.pampFuel !== undefined && other !== null && other !== undefined;
+  $("sFuelAll").textContent = haveBoth ? fmtTok(both) : "—";
+  const aUsd = haveBoth && both > 0n ? fmtUsd(usdOf(both, S.usd.fuel)) : null;
+  $("sFuelAllNote").textContent = `$PAMP + $FUEL protocol${aUsd ? " · ≈ " + aUsd : ""}`;
   $("sToBurn").textContent = fmtEth(L.toBurner);
   $("sToDev").textContent = fmtEth(L.toDev);
   setBar($("supplyBar"), pct);
@@ -2792,11 +2833,12 @@ function syncCount() {
   const ethCost = (K.ethPerEntry ?? E.parseEther("0.00006")) * BigInt(n);
   const fuelNeed = L.fuelPerEntry ? L.fuelPerEntry * BigInt(n) : null;
 
-  $("cost").textContent = fmtEth(ethCost, 6);
+  const ethUsd = fmtUsd(usdOf(ethCost, S.usd.eth));
+  $("cost").innerHTML = fmtEth(ethCost, 6) + (ethUsd ? `<span class="muted">≈ ${ethUsd}</span>` : "");
   if (fuelNeed !== null) {
-    $("costFuel").textContent = fmtTok(fuelNeed, 0);
     const u = fmtUsd(usdOf(fuelNeed, S.usd.fuel));
-    $("costFuelNote").textContent = `${u ? "≈ " + u + " · " : ""}worth ${fmtEth(fuelValue, 6)} at the pool's price · taken from your wallet`;
+    $("costFuel").innerHTML = fmtTok(fuelNeed, 0) + (u ? `<span class="muted">≈ ${u}</span>` : "");
+    $("costFuelNote").textContent = `worth ${fmtEth(fuelValue, 6)} at the pool's price`;
   } else {
     $("costFuel").textContent = "—";
     $("costFuelNote").textContent = L.priceWhy ? `no price right now: ${L.priceWhy}` : "—";
@@ -2810,7 +2852,9 @@ function syncCount() {
   } else $("projShare").textContent = "—";
 
   $("splitPreview").innerHTML =
-    `${fmtEth(fuelValue, 6)} of ${FUEL_MARK} used · ${fmtEth(toMore, 6)} buys and burns ${MORE_MARK} · ${fmtEth(toFund, 6)} to the PAMP fund wallet`;
+    `<span class="pill">40% <b>${fmtEth(fuelValue, 6)}</b> of ${FUEL_MARK} burned</span>` +
+    `<span class="pill">20% <b>${fmtEth(toMore, 6)}</b> buys &amp; burns ${MORE_MARK}</span>` +
+    `<span class="pill">40% <b>${fmtEth(toFund, 6)}</b> to the PAMP fund</span>`;
 
   // The only thing that pauses pricing is a pool oracle with too little history.
   const pn = $("priceNote");
