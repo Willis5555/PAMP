@@ -342,6 +342,10 @@
   .chart-tip[hidden] { display: none; }
 
   .footlinks { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 0 0 22px; }
+  .linkbtn .tg-mark, .tgbtn .tg-mark { width: 17px; height: 17px; flex: none; fill: currentColor; }
+  .tgbtn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--accent-dim); color: var(--accent); padding: 8px 14px 8px 11px;
+    font-family: var(--sans); font-size: 14px; text-decoration: none; }
+  .tgbtn:hover { background: rgba(150,201,156,.12); }
   .linkbtn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--accent-dim); color: var(--neon); padding: 11px 22px;
     font-family: var(--display); font-size: 11px; letter-spacing: .04em; text-decoration: none; text-shadow: 0 0 8px rgba(57,255,20,.35); }
   .linkbtn:hover { background: rgba(150,201,156,.12); }
@@ -458,6 +462,7 @@
         <div class="eyebrow" id="eyebrow">Robinhood Chain · 1000 daily auctions · 0.0001 ETH per entry</div>
       </div>
       <div class="wallet-bar wallet-bar-actions">
+        <a class="tgbtn" href="https://t.me/PAMPMORE" target="_blank" rel="noopener" title="Join the $PAMP MORE Telegram"><svg class="tg-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>Telegram</a>
         <span id="walletStatus">Not connected</span>
         <button id="connect">Connect wallet</button>
       </div>
@@ -1085,6 +1090,7 @@
 
   <footer>
     <div class="footlinks">
+      <a class="linkbtn" href="https://t.me/PAMPMORE" target="_blank" rel="noopener"><svg class="tg-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>TELEGRAM</a>
       <a class="linkbtn" href="#whitepaper" id="wpOpen">WHITE PAPER</a>
     </div>
     PAMP PROTOCOL runs on Robinhood Chain (4663). Figures marked with a
@@ -1167,6 +1173,9 @@ const MORE_MARK = '<span class="more-mark" role="img" aria-label="$MORE"></span>
 const PAMP_MARK = '<span class="pamp-mark" aria-label="$PAMP">$PAMP</span>';
 const FUEL_MARK = '<span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL';
 const pamp = (wei, d = 0) => (wei === null || wei === undefined) ? "—" : fmtTok(wei, d) + " " + PAMP_MARK;
+/* The same, followed by its dollar value at the market price when one is known. */
+const pampUsdTxt = wei => { const p = (typeof pampUsd === "function") ? pampUsd().price : null; const u = p && wei > 0n ? fmtUsd(usdOf(wei, p)) : null; return u ? ` <span class="muted">≈ ${u}</span>` : ""; };
+const pamp$ = (wei, d = 0) => (wei === null || wei === undefined) ? "—" : pamp(wei, d) + pampUsdTxt(wei);
 const LEGS = [
   { name: "WETH → " + MORE_MARK,  hops: "v4 direct" },
   { name: "SPY → " + MORE_MARK,   hops: "V3 WETH/SPY 0.05% → v4" },
@@ -1451,7 +1460,9 @@ function fmtUsd(v) {
 /* A unit price that may be very small: three significant figures below a dollar. */
 function fmtPrice(v, unit) {
   if (v === null || v === undefined || !isFinite(v) || v <= 0) return null;
-  const str = v >= 1 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : Number(v.toPrecision(3)).toString();
+  // three significant figures, always as a plain decimal (never 1.6e-7)
+  const str = v >= 1 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 })
+    : v.toFixed(Math.min(14, Math.max(2, 2 - Math.floor(Math.log10(v))))).replace(/0+$/, "").replace(/\.$/, "");
   return unit === "$" ? "$" + str : str + " " + unit;
 }
 /* USD value of a wei amount at `price` dollars per whole token, or null if unknown. */
@@ -1789,13 +1800,13 @@ function renderHeader() {
 function renderToday() {
   const L = S.L, K = S.K;
   const over = L.day > K.totalDays, early = L.day === 0, pre = L.day >= 1 && L.day <= DAY_OFFSET;
-  $("tEmission").innerHTML = (over || early) ? "—" : pamp(L.emission);
+  $("tEmission").innerHTML = (over || early) ? "—" : pamp$(L.emission);
   $("tMints").textContent = L.mintsSold !== undefined ? nf(L.mintsSold) : "—";
   $("tRaised").textContent = L.mintsSold !== undefined ? fmtEth(BigInt(L.mintsSold) * (K.entryValue ?? 0n)) + " of value entered today" : "—";
   $("tDayOf").textContent = L.day === undefined ? `opens ${LAUNCH_TEXT}` : over ? "the auction has ended" : early ? "not open yet" : pre ? "pre-launch — day 1 opens at the next rollover" : `day ${dispDay(L.day)} of ${K.totalDays}`;
 
   renderMinters();
-  if (L.emission && L.mintsSold > 0) $("tRate").innerHTML = nf(Number(E.formatEther(L.emission)) / L.mintsSold, 2) + " " + PAMP_MARK;
+  if (L.emission && L.mintsSold > 0) $("tRate").innerHTML = pamp$(L.emission / BigInt(L.mintsSold), 2);
   else if (L.emission && !over && !early) $("tRate").innerHTML = pamp(L.emission) + " (first entry takes all)";
   else $("tRate").textContent = "—";
 }
@@ -1803,7 +1814,7 @@ function renderToday() {
 function renderWallet() {
   const W = S.W, K = S.K, L = S.L;
   if (!W) return;
-  $("wBal").innerHTML = pamp(W.bal, 2);
+  $("wBal").innerHTML = pamp$(W.bal, 2);
   $("wFuel").textContent = fmtTok(W.fuelBal, 0);
   const fuelUsd = fmtUsd(usdOf(W.fuelBal, S.usd.fuel));
   $("wFuelNote").textContent = L.fuelPerEntry && L.fuelPerEntry > 0n
@@ -1812,9 +1823,9 @@ function renderWallet() {
   $("wToday").textContent = nf(W.todayMints);
   if (W.todayMints > 0 && L.emission && L.mintsSold > 0) {
     const share = (L.emission * BigInt(W.todayMints)) / BigInt(L.mintsSold);
-    $("wTodayShare").innerHTML = `≈ ${pamp(share, 2)} if the day closed now`;
+    $("wTodayShare").innerHTML = `≈ ${pamp$(share, 2)} if the day closed now`;
   } else $("wTodayShare").textContent = "—";
-  $("wPending").innerHTML = W.range ? pamp(W.range[2], 2) : "—";
+  $("wPending").innerHTML = W.range ? pamp$(W.range[2], 2) : "—";
 }
 
 function renderStakeWallet() {
@@ -1835,7 +1846,7 @@ function renderClaims() {
   }
   $("claimBody").innerHTML = `
     <table><thead><tr><th>Day</th><th class="num">${PAMP_MARK}</th></tr></thead>
-    <tbody>${days.map((d, i) => `<tr><td>${Number(d) <= DAY_OFFSET ? "pre-launch" : dispDay(Number(d))}</td><td class="num">${pamp(amounts[i], 4)}</td></tr>`).join("")}</tbody></table>
+    <tbody>${days.map((d, i) => `<tr><td>${Number(d) <= DAY_OFFSET ? "pre-launch" : dispDay(Number(d))}</td><td class="num">${pamp$(amounts[i], 4)}</td></tr>`).join("")}</tbody></table>
     <button id="claimAll">Claim ${days.length} day${days.length > 1 ? "s" : ""} — ${fmtTok(total, 2)} ${K.symbol}</button>`;
   $("claimAll").onclick = () => doClaim(days.map(Number));
 }
@@ -2030,7 +2041,7 @@ const dShort = ts => new Date(Number(ts) * 1000).toLocaleDateString(undefined, {
 const STAKE_COLUMNS = [
   { key: "status", label: "Status", sort: s => stakeStatus(s).rank, cell: s => { const st = stakeStatus(s); return `<span class="st st-${["locked", "unlocked", "closed"][st.rank]}">${st.text}</span>`; } },
   { key: "id", label: "Stake", sort: s => Number(s.id), cell: s => "#" + s.id },
-  { key: "amount", label: "Tokens", num: true, sort: s => Number(E.formatEther(s.info.amount)), cell: s => pamp(s.info.amount, 2) },
+  { key: "amount", label: "Tokens", num: true, sort: s => Number(E.formatEther(s.info.amount)), cell: s => pamp$(s.info.amount, 2) },
   { key: "value", label: "Value", num: true, sort: s => { const p = pampUsd().price; return p ? Number(E.formatEther(s.info.amount)) * p : -1; },
     cell: s => { const p = pampUsd(); const u = fmtUsd(usdOf(s.info.amount, p.price)); return u ? u + (p.derived ? "*" : "") : `<span class="muted">—</span>`; } },
   { key: "rewards", label: "Rewards", num: true, sort: s => Number(E.formatEther(s.pending || 0n)), cell: s => s.info.status ? fmtTok(s.pending || 0n, 4) : `<span class="muted">—</span>` },
@@ -2132,6 +2143,8 @@ $("stkBtn").onclick = doStake;
    swaps through, so the figure matches what the burns actually pay. All three are keyless
    and answer cross-origin. Any failure just leaves the dollar lines blank. */
 const MORE_PRICE_PAIR = "0xd77dcda732a762ec8b04ee44a1c7370602759d2372037a5008135ab9f60305ef";
+/* The PAMP/WETH pool that prices $PAMP. Read straight from DexScreener by pair address. */
+const PAMP_PRICE_PAIR = "0xC774A953079B7411F313A2d23ECAcAFb19682b6E";
 
 async function fetchPrices() {
   let changed = false;
@@ -2169,7 +2182,15 @@ async function fetchPrices() {
   } catch {}
   if (fuel && fuel !== S.usd.fuel) { S.usd.fuel = fuel; changed = true; }
 
-  if (changed && S.loaded) { renderHeader(); renderBurn(); renderMoreSwap(); renderMoreSwapQuote(); renderStakingStats(); syncCount(); }
+  let pamp = null;
+  try {
+    const j = await (await fetch("https://api.dexscreener.com/latest/dex/pairs/robinhood/" + PAMP_PRICE_PAIR, { cache: "no-store" })).json();
+    const pr = j?.pair || (j?.pairs || [])[0];
+    if (pr && String(pr.baseToken?.address || "").toLowerCase() === A.token.toLowerCase() && Number(pr.priceUsd) > 0) pamp = Number(pr.priceUsd);
+  } catch {}
+  if (pamp && pamp !== S.usd.pamp) { S.usd.pamp = pamp; changed = true; }
+
+  if (changed && S.loaded) { renderHeader(); renderToday(); renderSupply(); renderBurn(); renderMoreSwap(); renderMoreSwapQuote(); renderStakingStats(); syncCount(); renderStakes(); renderStakeWalletLine(); if (S.W) { renderWallet(); renderClaims(); } }
 }
 
 /* ---- per-leg burn history, from LegBurned events ----
@@ -2265,10 +2286,8 @@ async function scanMints() {
     if (!ev) continue;
     const day = Number(ev.args.day), buyer = String(ev.args.buyer).toLowerCase();
     const byBuyer = M.days.get(day) || new Map();
-    const b = byBuyer.get(buyer) || { addr: ev.args.buyer, count: 0n, paid: 0n, fuel: 0n, txs: 0 };
-    // Both ways in are worth the same, so "paid" is the entry value, not the ETH alone.
-    b.count += ev.args.count; b.paid += ev.args.count * (S.K.entryValue ?? E.parseEther("0.0001"));
-    b.fuel += ev.args.fuelBurned; b.txs++;
+    const b = byBuyer.get(buyer) || { addr: ev.args.buyer, count: 0n, eth: 0n, fuel: 0n, txs: 0 };
+    b.count += ev.args.count; b.eth += ev.args.ethPaid; b.fuel += ev.args.fuelBurned; b.txs++;
     byBuyer.set(buyer, b); M.days.set(day, byBuyer);
   }
   M.scannedTo = head;
@@ -2317,6 +2336,30 @@ function renderEntriesChart() {
   <div class="hint">${nf(total)} entries over ${n} ${n === 1 ? "day" : "days"}${closed.length ? ` · average ${nf(closed.reduce((a, b) => a + b, 0) / closed.length, 1)} per closed day · busiest closed day ${nf(busiest)}` : ""} · today ${nf(counts[n - 1])} so far.</div>`;
 }
 
+/* What one PAMP cost this entrant: the ETH they paid plus the dollar value of the $FUEL
+   they used (at today's $FUEL price), divided by the PAMP they would receive. Falls back
+   to ETH per PAMP when no dollar prices are available. */
+/* What an entrant paid, in ETH: the ETH itself plus their $FUEL valued at the auction's own
+   rate (0.00004 ETH per entry's worth of FUEL, read from the contract), so no outside price
+   feed is needed. */
+function entrantCostEth(m) {
+  const L = S.L, K = S.K;
+  let fuelEth = 0;
+  if (L.fuelPerEntry && L.fuelPerEntry > 0n && K.fuelValue) fuelEth = Number(E.formatEther(m.fuel)) * Number(E.formatEther(K.fuelValue)) / Number(E.formatEther(L.fuelPerEntry));
+  else if (S.usd.eth && S.usd.fuel) fuelEth = Number(E.formatEther(m.fuel)) * S.usd.fuel / S.usd.eth;
+  return Number(E.formatEther(m.eth)) + fuelEth;
+}
+function entrantCost(m) {
+  const v = entrantCostEth(m);
+  return S.usd.eth ? fmtPrice(v * S.usd.eth, "$") : fmtPrice(v, "ETH");
+}
+function entrantPrice(m, estPamp) {
+  const pamp = Number(E.formatEther(estPamp));
+  if (!(pamp > 0)) return null;
+  const valueEth = entrantCostEth(m);
+  return S.usd.eth ? fmtPrice(valueEth * S.usd.eth / pamp, "$") : fmtPrice(valueEth / pamp, "ETH");
+}
+
 function renderMinters() {
   renderEntriesChart();
   const L = S.L, K = S.K, M = S.mints;
@@ -2339,21 +2382,21 @@ function renderMinters() {
   box.innerHTML = `<table><thead><tr>
       <th>Entrant</th><th class="num">Entries</th><th class="num">${FUEL_MARK} used</th><th class="num">Share</th>
       <th class="num">Est. ${PAMP_MARK} <span class="derived" title="Today's emission times this entrant's share of today's entries. It changes with every new entry and is only final once the day closes.">now</span></th>
-      <th class="num">Est. price / ${PAMP_MARK} <span class="derived" title="What one PAMP costs at today's rate: what this entrant paid, divided by the PAMP they would receive if the day closed now. It is the same for everyone on a given day, because every entry pays the same price and shares pro rata, and it rises as more people enter.">now</span></th>
+      <th class="num">Cost <span class="derived" title="What this entrant paid: the ETH plus the value of the $FUEL they used, at today's prices.">paid</span></th>
+      <th class="num">Est. price / ${PAMP_MARK} <span class="derived" title="What one PAMP cost this entrant: the ETH they paid plus the dollar value of the $FUEL they used, at today's ETH and $FUEL prices, divided by the PAMP they would receive if the day closed now. It rises as more people enter.">now</span></th>
     </tr></thead><tbody>` +
     rows.slice(0, MAX).map(m => {
       const you = me && m.addr.toLowerCase() === me;
       const share = total > 0n ? Number((m.count * 10000n) / total) / 100 : 0;
       const e = est(m);
-      const ethPerPamp = (e && e > 0n) ? Number(m.paid) / Number(e) : null;   // both in wei, so the units cancel
-      const price = ethPerPamp === null ? null
-        : (S.usd.eth ? fmtPrice(ethPerPamp * S.usd.eth, "$") : fmtPrice(ethPerPamp, "ETH"));
+      const price = (e && e > 0n) ? entrantPrice(m, e) : null;
       return `<tr class="${you ? "you" : ""}">
         <td>${linkAddr(m.addr)}${you ? '<span class="you-tag">you</span>' : ""}</td>
         <td class="num">${nf(Number(m.count))}</td>
         <td class="num">${fmtTok(m.fuel, 0)}</td>
         <td class="num">${share.toFixed(1)}%</td>
-        <td class="num">${e !== null ? fmtTok(e, 2) : "—"}</td>
+        <td class="num">${e !== null ? fmtTok(e, 2) + (pampUsd().price && fmtUsd(usdOf(e, pampUsd().price)) ? ` <span class="muted">≈ ${fmtUsd(usdOf(e, pampUsd().price))}</span>` : "") : "—"}</td>
+        <td class="num">${entrantCost(m) ?? "—"}</td>
         <td class="num">${price ?? "—"}</td>
       </tr>`;
     }).join("") +
@@ -2441,7 +2484,7 @@ function renderSupply() {
   const L = S.L, K = S.K;
   const minted = L.supply ?? 0n, cap = K.maxSupply ?? 0n;
   const pct = cap > 0n ? Number((minted * 10000n) / cap) / 100 : 0;
-  $("sMinted").innerHTML = pamp(minted, 0);
+  $("sMinted").innerHTML = pamp$(minted, 0);
   $("sOfCap").textContent = cap > 0n ? `${pct.toFixed(2)}% of ${fmtTok(cap)} cap` : "—";
   const entered = (L.totalMints !== null && L.totalMints !== undefined) ? L.totalMints * (K.entryValue ?? 0n) : null;
   $("sRaised").textContent = fmtEth(entered);
@@ -2763,7 +2806,7 @@ function syncCount() {
     const mine = BigInt((W?.todayMints || 0) + n);
     const total = BigInt(L.mintsSold + n);
     const share = total > 0n ? (L.emission * mine) / total : 0n;
-    $("projShare").innerHTML = pamp(share, 2);
+    $("projShare").innerHTML = pamp$(share, 2);
   } else $("projShare").textContent = "—";
 
   $("splitPreview").innerHTML =
