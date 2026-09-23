@@ -41,6 +41,9 @@
     background: var(--bg); color: var(--text);
     font-family: var(--serif);
   }
+  /* Everything renders 10% larger, the same as Chrome's 110% zoom, so the page reads
+     comfortably at 100%. Phones keep the natural size: there is no room to spare. */
+  @media (min-width: 720px) { body { zoom: 1.1; } }
   .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
   /* The masthead stays a reading column; the data panels take the extra room. */
   @media (min-width: 1080px) { .wrap { max-width: 1040px; } footer { max-width: 68ch; } }
@@ -278,6 +281,16 @@
   /* The FUEL pump icon beside its heading, sized like the heading's capitals. */
   /* 1.5em tall, centred on the capitals: cap centre is 0.5em up, so the bottom sits 0.25em down. */
   h2 .more-mark { width: 4.062em; height: 1.578em; vertical-align: -0.34em; }
+
+  /* ---- past cycles pager ---- */
+  .pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 22px; }
+  .pager select {
+    background: var(--bg); color: var(--neon); border: 1px solid var(--line); padding: 9px 12px;
+    font-family: var(--display); font-size: 11px; letter-spacing: 0.02em; min-width: 180px; text-align: center;
+  }
+  .pager select:focus { outline: none; border-color: var(--accent-dim); }
+  .pager button.sm { padding: 8px 14px; font-size: 14px; line-height: 1; }
+  .claimed-yes { color: var(--accent); } .claimed-no { color: var(--text-dim); }
 
   /* ---- the entry order box ---- */
   .order-box { background: var(--bg); border: 1px solid var(--line); padding: 6px 16px 10px; }
@@ -534,7 +547,6 @@
     <button role="tab" aria-selected="false" data-tab="more">$MORE</button>
     <button role="tab" aria-selected="false" data-tab="charts">Charts</button>
     <button role="tab" aria-selected="false" data-tab="stats">Stats</button>
-    <button role="tab" aria-selected="false" data-tab="whitepaper">White paper</button>
   </nav>
 
   <div class="tab on" id="tab-auction">
@@ -724,6 +736,11 @@
         </div>
         <div class="hint">Click a column heading to sort. Unstaking closes the stake and withdraws principal plus rewards.</div>
       </div>
+
+      <div class="sub-head">
+        <div class="contract-head">Recent stakes</div>
+        <div id="stkRecent" class="hint">Loading…</div>
+      </div>
     </div>
   </section>
 
@@ -874,6 +891,19 @@
     </div>
   </section>
 
+  <!-- ============================ past cycles ============================ -->
+  <section>
+    <h2>Past cycles</h2>
+    <div class="panel">
+      <div class="pager">
+        <button class="sm" id="cycPrev" title="Earlier day">‹</button>
+        <select id="cycDay" aria-label="Closed day"></select>
+        <button class="sm" id="cycNext" title="Later day">›</button>
+      </div>
+      <div class="grid" id="cycSummary" style="margin-bottom:22px"></div>
+      <div class="tablewrap" id="cycTable"><span class="hint">Loading…</span></div>
+    </div>
+  </section>
   </div>
 
   <div class="tab" id="tab-whitepaper">
@@ -1293,7 +1323,8 @@ const ABI = {
     "function enter(uint256 count, uint256 maxFuel) payable",
     "function claim(uint256) returns (uint256)",
     "function claimMany(uint256[]) returns (uint256)",
-    "event Entered(address indexed buyer, uint256 indexed day, uint256 count, uint256 ethPaid, uint256 fuelBurned)"
+    "event Entered(address indexed buyer, uint256 indexed day, uint256 count, uint256 ethPaid, uint256 fuelBurned)",
+    "event Claimed(address indexed claimer, uint256 indexed day, uint256 entries, uint256 amount)"
   ],
   burner: [
     "function pots() view returns (uint256[5])",
@@ -1727,9 +1758,14 @@ async function loadLive() {
     S.burnScanBusy = true;
     scanBurns().then(() => { renderBurn(); renderHeader(); }).catch(e => console.warn("[burns] scan failed:", e)).finally(() => { S.burnScanBusy = false; });
   }
+  if (stakingDeployed() && !S.stakeScanBusy) {
+    S.stakeScanBusy = true;
+    scanStakes().then(renderRecentStakes).catch(e => console.warn("[stakes] scan failed:", e)).finally(() => { S.stakeScanBusy = false; });
+  }
   if (auctionDeployed() && !S.mintScanBusy) {
     S.mintScanBusy = true;
-    scanMints().then(renderMinters).catch(e => console.warn("[mints] scan failed:", e)).finally(() => { S.mintScanBusy = false; });
+    Promise.all([scanMints(), scanClaims().catch(e => console.warn("[claims] scan failed:", e))])
+      .then(() => { renderMinters(); renderCycles(); }).catch(e => console.warn("[mints] scan failed:", e)).finally(() => { S.mintScanBusy = false; });
   }
   if (S.account) await loadWallet();
   syncCount();
@@ -2252,7 +2288,7 @@ async function fetchPrices() {
   } catch {}
   if (pamp && pamp !== S.usd.pamp) { S.usd.pamp = pamp; changed = true; }
 
-  if (changed && S.loaded) { renderHeader(); renderToday(); renderSupply(); renderBurn(); renderMoreSwap(); renderMoreSwapQuote(); renderStakingStats(); syncCount(); renderStakes(); renderStakeWalletLine(); if (S.W) { renderWallet(); renderClaims(); } }
+  if (changed && S.loaded) { renderHeader(); renderToday(); renderSupply(); renderBurn(); renderMoreSwap(); renderMoreSwapQuote(); renderStakingStats(); syncCount(); renderStakes(); renderStakeWalletLine(); renderCycles(); renderRecentStakes(); if (S.W) { renderWallet(); renderClaims(); } }
 }
 
 /* ---- per-leg burn history, from LegBurned events ----
@@ -2354,6 +2390,165 @@ async function scanMints() {
   }
   M.scannedTo = head;
 }
+
+/* ---- recent stakes: everyone's newest stakes, from Staked events plus the contract's own record ---- */
+const STAKED_TOPIC = I.staking.getEvent("Staked").topicHash;
+const RECENT_STAKES = 15;
+async function scanStakes() {
+  if (!stakingDeployed()) return;
+  const head = await rpcRetry(p => p.getBlockNumber());
+  const R = S.recentStakes || (S.recentStakes = { all: [], scannedTo: A.auctionDeployBlock - 1, rows: null });
+  if (head > R.scannedTo) {
+    const raw = await collectLogs({ address: A.staking, topics: [STAKED_TOPIC] }, R.scannedTo + 1, head);
+    for (const lg of raw) {
+      let ev; try { ev = I.staking.parseLog({ topics: [...lg.topics], data: lg.data }); } catch { continue; }
+      if (!ev) continue;
+      R.all.push({ id: BigInt(ev.args.stakeId), staker: String(ev.args.staker), amount: ev.args.amount, duration: Number(ev.args.duration), block: lg.blockNumber });
+    }
+    R.scannedTo = head;
+  }
+  // The newest few, with their live state read back from the contract (open or closed, dates).
+  const newest = R.all.slice().sort((a, b) => (b.id > a.id ? 1 : b.id < a.id ? -1 : 0)).slice(0, RECENT_STAKES);
+  if (!newest.length) { R.rows = []; return; }
+  const r = await mc(newest.map(x => call(A.staking, I.staking, "getStakeInfo", [x.id])));
+  R.rows = newest.map((x, i) => ({ ...x, info: dec(I.staking, "getStakeInfo", r[i]) }));
+}
+function renderRecentStakes() {
+  const box = $("stkRecent"), R = S.recentStakes;
+  if (!stakingDeployed()) { box.innerHTML = `<span class="hint">Staking goes live with the token.</span>`; return; }
+  if (!R || !R.rows) { box.innerHTML = `<span class="hint">Loading…</span>`; return; }
+  if (!R.rows.length) { box.innerHTML = `<span class="hint">No stakes yet. The first one opened shows up here.</span>`; return; }
+  const me = S.account ? S.account.toLowerCase() : null;
+  const px = pampUsd().price;
+  const rowsHtml = R.rows.map(x => {
+    const you = me && x.staker.toLowerCase() === me;
+    const info = x.info;
+    const start = info ? Number(info.startTime) : null, end = info ? Number(info.endTime) : start ? start + x.duration : null;
+    const days = Math.round(x.duration / 86400);
+    const open = info ? Boolean(info.status) : true;
+    const unlocked = end !== null && nowTs() >= end;
+    const state = !open ? '<span class="claimed-no">closed</span>' : unlocked ? '<span class="claimed-yes">unlocked</span>' : `<span class="claimed-yes">locked</span>`;
+    const usd = px && fmtUsd(usdOf(x.amount, px)) ? ` <span class="muted">≈ ${fmtUsd(usdOf(x.amount, px))}</span>` : "";
+    return `<tr class="${you ? "you" : ""}">
+      <td>${linkAddr(x.staker)}${you ? '<span class="you-tag">you</span>' : ""}</td>
+      <td class="num">${fmtTok(x.amount, 2)}${usd}</td>
+      <td class="num">${nf(days)} d</td>
+      <td>${end !== null ? new Date(end * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—"}</td>
+      <td>${start !== null ? agoTs(start) : "—"}</td>
+      <td>${state}</td>
+    </tr>`;
+  }).join("");
+  const total = R.all.length;
+  box.innerHTML = `<div class="tablewrap"><table><thead><tr>
+      <th>Staker</th><th class="num">${PAMP_MARK}</th><th class="num">Lock</th><th>Unlocks</th><th>Opened</th><th>State</th>
+    </tr></thead><tbody>${rowsHtml}</tbody></table></div>
+    <div class="hint">The ${R.rows.length === total ? "" : `newest ${R.rows.length} of `}${nf(total)} stake${total === 1 ? "" : "s"} ever opened, from the staking contract's events.</div>`;
+}
+
+/* ---- claims: who has collected which closed day, from Claimed events ---- */
+const CLAIMED_TOPIC = I.auction.getEvent("Claimed").topicHash;
+async function scanClaims() {
+  const head = await rpcRetry(p => p.getBlockNumber());
+  const C = S.claims || (S.claims = { days: new Map(), scannedTo: A.auctionDeployBlock - 1 });
+  if (head <= C.scannedTo) return;
+  const raw = await collectLogs({ address: A.auction, topics: [CLAIMED_TOPIC] }, C.scannedTo + 1, head);
+  for (const lg of raw) {
+    let ev; try { ev = I.auction.parseLog({ topics: [...lg.topics], data: lg.data }); } catch { continue; }
+    if (!ev) continue;
+    const day = Number(ev.args.day), who = String(ev.args.claimer).toLowerCase();
+    const m = C.days.get(day) || new Map();
+    m.set(who, ev.args.amount); C.days.set(day, m);
+  }
+  C.scannedTo = head;
+}
+
+/* ---- past cycles: one page per closed day, newest first ---- */
+const CYC = { day: null, emission: new Map(), loading: new Set() };
+function closedDays() {
+  const L = S.L, K = S.K;
+  if (!auctionDeployed() || !L.day) return [];
+  const last = Math.min(L.day - 1, K.totalDays || 1000);
+  const out = [];
+  for (let d = last; d > DAY_OFFSET; d--) out.push(d);   // the pre-launch day is not a cycle
+  return out;
+}
+const cycLabel = d => `Day ${dispDay(d)}`;
+function cycleEmission(d) {
+  if (CYC.emission.has(d)) return CYC.emission.get(d);
+  if (!CYC.loading.has(d)) {
+    CYC.loading.add(d);
+    mc([call(A.schedule, I.schedule, "emissionFor", [d])])
+      .then(r => { CYC.emission.set(d, dec(I.schedule, "emissionFor", r[0])); renderCycles(); })
+      .catch(() => {}).finally(() => CYC.loading.delete(d));
+  }
+  return null;
+}
+function renderCycles() {
+  const days = closedDays(), sel = $("cycDay"), sum = $("cycSummary"), box = $("cycTable");
+  if (!days.length) {
+    sel.innerHTML = ""; sum.innerHTML = "";
+    $("cycPrev").disabled = $("cycNext").disabled = true;
+    box.innerHTML = `<span class="hint">${auctionDeployed() ? "No day has closed yet. The first cycle appears here after the rollover." : `Day 1 opens ${LAUNCH_TEXT}.`}</span>`;
+    return;
+  }
+  if (CYC.day === null || !days.includes(CYC.day)) CYC.day = days[0];
+  const d = CYC.day, i = days.indexOf(d);
+  sel.innerHTML = days.map(x => `<option value="${x}"${x === d ? " selected" : ""}>${cycLabel(x)}</option>`).join("");
+  $("cycNext").disabled = i === 0;                 // newer day
+  $("cycPrev").disabled = i === days.length - 1;   // older day
+
+  const M = S.mints, K = S.K;
+  if (!M) { sum.innerHTML = ""; box.innerHTML = `<span class="hint">Loading…</span>`; return; }
+  const rows = [...(M.days.get(d) || new Map()).values()].sort((a, b) => (b.count > a.count ? 1 : b.count < a.count ? -1 : 0));
+  const total = rows.reduce((n, m) => n + m.count, 0n);
+  const emission = cycleEmission(d);
+  const claims = (S.claims && S.claims.days.get(d)) || new Map();
+  const fuel = rows.reduce((n, m) => n + m.fuel, 0n);
+  const value = total * (K.entryValue ?? 0n);
+  const perEntry = emission && total > 0n ? emission / total : null;
+  const px = pampUsd().price;
+  const usdNote = wei => px && fmtUsd(usdOf(wei, px)) ? `≈ ${fmtUsd(usdOf(wei, px))}` : "";
+  const claimedCount = rows.filter(m => claims.has(m.addr.toLowerCase())).length;
+  const claimedAmt = [...claims.values()].reduce((n, v) => n + v, 0n);
+
+  sum.innerHTML = `
+    <div class="cell"><span class="k">Entries</span><span class="v">${nf(Number(total))}</span><span class="note">${nf(rows.length)} wallet${rows.length === 1 ? "" : "s"}</span></div>
+    <div class="cell"><span class="k">${PAMP_MARK} minted</span><span class="v">${total > 0n ? fmtTok(emission, 0) : "0"}</span><span class="note">${total > 0n ? (emission ? usdNote(emission) || "the day's emission" : "loading…") : "nobody entered, nothing minted"}</span></div>
+    <div class="cell"><span class="k">${PAMP_MARK} per entry</span><span class="v">${perEntry !== null ? fmtTok(perEntry, 2) : "—"}</span><span class="note">${perEntry !== null ? usdNote(perEntry) : ""}</span></div>
+    <div class="cell"><span class="k">Value entered</span><span class="v">${fmtEth(value)}</span><span class="note">${S.usd.eth ? "≈ " + fmtUsd(usdOf(value, S.usd.eth)) : ""}</span></div>
+    <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL used</span><span class="v">${fmtTok(fuel, 0)}</span><span class="note">${S.usd.fuel ? "≈ " + fmtUsd(usdOf(fuel, S.usd.fuel)) : ""}</span></div>
+    <div class="cell"><span class="k">Claimed</span><span class="v">${rows.length ? `${claimedCount} of ${rows.length}` : "—"}</span><span class="note">${claimedAmt > 0n ? fmtTok(claimedAmt, 0) + " $PAMP collected" : "nothing collected yet"}</span></div>`;
+
+  if (!rows.length) { box.innerHTML = `<span class="hint">No entries on this day.</span>`; return; }
+  const me = S.account ? S.account.toLowerCase() : null;
+  box.innerHTML = `<table><thead><tr>
+      <th>Entrant</th><th class="num">Entries</th><th class="num">${FUEL_MARK} used</th><th class="num">Share</th>
+      <th class="num">${PAMP_MARK} received</th>
+      <th class="num">Cost <span class="derived" title="What this entrant paid: 0.0001 ETH of value per entry (0.00006 ETH sent plus 0.00004 ETH worth of $FUEL), shown at today's ETH price.">paid</span></th>
+      <th>Claimed</th>
+    </tr></thead><tbody>` +
+    rows.map(m => {
+      const you = me && m.addr.toLowerCase() === me;
+      const share = total > 0n ? Number((m.count * 10000n) / total) / 100 : 0;
+      const got = emission && total > 0n ? (emission * m.count) / total : null;
+      const costWei = m.count * (K.entryValue ?? 0n);
+      const cost = S.usd.eth ? fmtPrice(Number(E.formatEther(costWei)) * S.usd.eth, "$") : fmtPrice(Number(E.formatEther(costWei)), "ETH");
+      const claimed = claims.has(m.addr.toLowerCase());
+      return `<tr class="${you ? "you" : ""}">
+        <td>${linkAddr(m.addr)}${you ? '<span class="you-tag">you</span>' : ""}</td>
+        <td class="num">${nf(Number(m.count))}</td>
+        <td class="num">${fmtTok(m.fuel, 0)}</td>
+        <td class="num">${share.toFixed(1)}%</td>
+        <td class="num">${got !== null ? fmtTok(got, 2) + (usdNote(got) ? ` <span class="muted">${usdNote(got)}</span>` : "") : "—"}</td>
+        <td class="num">${cost ?? "—"}</td>
+        <td class="${claimed ? "claimed-yes" : "claimed-no"}">${claimed ? "✓ claimed" : "not yet"}</td>
+      </tr>`;
+    }).join("") +
+    `</tbody></table><div class="hint">${cycLabel(d)} closed with ${nf(Number(total))} entries from ${nf(rows.length)} wallet${rows.length === 1 ? "" : "s"}. Rows are final: the day is over and its numbers cannot change.</div>`;
+}
+$("cycDay").addEventListener("change", e => { CYC.day = Number(e.target.value); renderCycles(); });
+$("cycPrev").addEventListener("click", () => { const days = closedDays(), i = days.indexOf(CYC.day); if (i < days.length - 1) { CYC.day = days[i + 1]; renderCycles(); } });
+$("cycNext").addEventListener("click", () => { const days = closedDays(), i = days.indexOf(CYC.day); if (i > 0) { CYC.day = days[i - 1]; renderCycles(); } });
 
 /* ---- entries per day: one bar per day, from the same scan the entrants table uses ---- */
 function renderEntriesChart() {
