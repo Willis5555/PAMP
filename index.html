@@ -2545,19 +2545,44 @@ async function scanBurns() {
    incremental scan across every day; "today" is then a lookup. */
 const MINTED_TOPIC = I.auction.getEvent("Entered").topicHash;
 
+const SAMPLED_TOPIC = I.auction.getEvent("PriceSampled").topicHash;
+/* The $FUEL an entry took, valued in ETH at the pool's price at that moment. The contract logs
+   a price sample (PriceSampled) in the entry's own transaction, or within the 10 seconds before
+   it, with the 10-second tick: FUEL per WETH on a log scale. Dividing by 1.0001^tick turns the
+   $FUEL amount into the ETH it was worth right then. Without a sample the contract's own rule
+   applies: 0.00004 ETH per entry. */
+function fuelEthAtEntry(M, lg, fuelWei, count) {
+  const S_ = M.samples;
+  let lo = 0, hi = S_.length - 1, best = -1;
+  while (lo <= hi) {                       // last sample at or before this log
+    const mid = (lo + hi) >> 1, x = S_[mid];
+    if (x.block < lg.blockNumber || (x.block === lg.blockNumber && x.index < lg.index)) { best = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  if (best < 0) return Number(E.formatEther(BigInt(count) * (S.K.fuelValue ?? E.parseEther("0.00004"))));
+  return Number(E.formatEther(fuelWei)) / Math.pow(1.0001, S_[best].tick);
+}
 async function scanMints() {
   const head = await rpcRetry(p => p.getBlockNumber());
-  const M = S.mints || (S.mints = { days: new Map(), scannedTo: A.auctionDeployBlock - 1 });
+  const M = S.mints || (S.mints = { days: new Map(), samples: [], scannedTo: A.auctionDeployBlock - 1 });
   if (head <= M.scannedTo) return;
 
-  const raw = await collectLogs({ address: A.auction, topics: [MINTED_TOPIC] }, M.scannedTo + 1, head);
+  const [raw, sampled] = await Promise.all([
+    collectLogs({ address: A.auction, topics: [MINTED_TOPIC] }, M.scannedTo + 1, head),
+    collectLogs({ address: A.auction, topics: [SAMPLED_TOPIC] }, M.scannedTo + 1, head)
+  ]);
+  for (const lg of sampled) {
+    let ev; try { ev = I.auction.parseLog({ topics: [...lg.topics], data: lg.data }); } catch { continue; }
+    if (ev) M.samples.push({ block: lg.blockNumber, index: lg.index, tick: Number(ev.args.shortTick) });
+  }
+  M.samples.sort((a, b) => a.block - b.block || a.index - b.index);
   for (const lg of raw) {
     let ev; try { ev = I.auction.parseLog({ topics: [...lg.topics], data: lg.data }); } catch { continue; }
     if (!ev) continue;
     const day = Number(ev.args.day), buyer = String(ev.args.buyer).toLowerCase();
     const byBuyer = M.days.get(day) || new Map();
-    const b = byBuyer.get(buyer) || { addr: ev.args.buyer, count: 0n, eth: 0n, fuel: 0n, txs: 0 };
+    const b = byBuyer.get(buyer) || { addr: ev.args.buyer, count: 0n, eth: 0n, fuel: 0n, fuelEth: 0, txs: 0 };
     b.count += ev.args.count; b.eth += ev.args.ethPaid; b.fuel += ev.args.fuelBurned; b.txs++;
+    b.fuelEth += fuelEthAtEntry(M, lg, ev.args.fuelBurned, ev.args.count);
     byBuyer.set(buyer, b); M.days.set(day, byBuyer);
   }
   M.scannedTo = head;
@@ -2676,7 +2701,8 @@ function renderCycles() {
   const emission = cycleEmission(d);
   const claims = (S.claims && S.claims.days.get(d)) || new Map();
   const fuel = rows.reduce((n, m) => n + m.fuel, 0n);
-  const value = total * (K.entryValue ?? 0n);
+  const valueEth = rows.reduce((n, m) => n + entrantCostEth(m), 0);          // ETH sent + $FUEL at the price of the moment
+  const fuelEthSum = rows.reduce((n, m) => n + entrantFuelEth(m), 0);
   const perEntry = emission && total > 0n ? emission / total : null;
   const px = pampUsd().price;
   const usdNote = wei => px && fmtUsd(usdOf(wei, px)) ? `≈ ${fmtUsd(usdOf(wei, px))}` : "";
@@ -2687,8 +2713,8 @@ function renderCycles() {
     <div class="cell"><span class="k">Entries</span><span class="v">${nf(Number(total))}</span><span class="note">${nf(rows.length)} wallet${rows.length === 1 ? "" : "s"}</span></div>
     <div class="cell"><span class="k">${PAMP_MARK} minted</span><span class="v">${total > 0n ? fmtTok(emission, 0) : "0"}</span><span class="note">${total > 0n ? (emission ? usdNote(emission) || "the day's emission" : "loading…") : "nobody entered, nothing minted"}</span></div>
     <div class="cell"><span class="k">${PAMP_MARK} per entry</span><span class="v">${perEntry !== null ? fmtTok(perEntry, 2) : "—"}</span><span class="note">${perEntry !== null ? usdNote(perEntry) : ""}</span></div>
-    <div class="cell"><span class="k">Value entered</span><span class="v">${fmtEth(value)}</span><span class="note">${S.usd.eth ? "≈ " + fmtUsd(usdOf(value, S.usd.eth)) : ""}</span></div>
-    <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL used</span><span class="v">${fmtTok(fuel, 0)}</span><span class="note">${S.usd.fuel ? "≈ " + fmtUsd(usdOf(fuel, S.usd.fuel)) : ""}</span></div>
+    <div class="cell"><span class="k">Value entered <span class="derived" title="The ETH sent plus the $FUEL taken, valued at the pool's $FUEL price at the moment of each entry, shown at today's ETH price.">paid</span></span><span class="v">${fmtPrice(valueEth, "ETH")}</span><span class="note">${S.usd.eth ? "≈ " + fmtUsd(valueEth * S.usd.eth) : ""}</span></div>
+    <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL used</span><span class="v">${fmtTok(fuel, 0)}</span><span class="note">${S.usd.eth ? "worth " + fmtPrice(fuelEthSum, "ETH") + " ≈ " + fmtUsd(fuelEthSum * S.usd.eth) + " when used" : ""}</span></div>
     <div class="cell"><span class="k">Claimed</span><span class="v">${rows.length ? `${claimedCount} of ${rows.length}` : "—"}</span><span class="note">${claimedAmt > 0n ? fmtTok(claimedAmt, 0) + " $PAMP collected" : "nothing collected yet"}</span></div>`;
 
   if (!rows.length) { box.innerHTML = `<span class="hint">No entries on this day.</span>`; return; }
@@ -2696,15 +2722,14 @@ function renderCycles() {
   box.innerHTML = `<table><thead><tr>
       <th>Entrant</th><th class="num">Entries</th><th class="num">${FUEL_MARK} used</th><th class="num">Share</th>
       <th class="num">${PAMP_MARK} received</th>
-      <th class="num">Cost <span class="derived" title="What this entrant paid: 0.0001 ETH of value per entry (0.00006 ETH sent plus 0.00004 ETH worth of $FUEL), shown at today's ETH price.">paid</span></th>
+      <th class="num">Cost <span class="derived" title="What this entrant paid: the ETH sent plus the $FUEL taken, valued at the pool's $FUEL price at the moment they entered (from the contract's on-chain price log), shown at today's ETH price.">paid</span></th>
       <th>Claimed</th>
     </tr></thead><tbody>` +
     rows.map(m => {
       const you = me && m.addr.toLowerCase() === me;
       const share = total > 0n ? Number((m.count * 10000n) / total) / 100 : 0;
       const got = emission && total > 0n ? (emission * m.count) / total : null;
-      const costWei = m.count * (K.entryValue ?? 0n);
-      const cost = S.usd.eth ? fmtPrice(Number(E.formatEther(costWei)) * S.usd.eth, "$") : fmtPrice(Number(E.formatEther(costWei)), "ETH");
+      const cost = entrantCost(m);
       const claimed = claims.has(m.addr.toLowerCase());
       return `<tr class="${you ? "you" : ""}">
         <td>${linkAddr(m.addr)}${you ? '<span class="you-tag">you</span>' : ""}</td>
@@ -2771,14 +2796,15 @@ function renderEntriesChart() {
 /* What an entrant paid, in ETH: the ETH itself plus their $FUEL valued at the auction's own
    rate (0.00004 ETH per entry's worth of FUEL, read from the contract), so no outside price
    feed is needed. */
-/* What an entrant paid, in ETH. The contract takes exactly 0.00004 ETH worth of $FUEL at the
-   pool's price at the moment of each entry, so the $FUEL side is valued at that price, not
-   at whatever $FUEL costs now: count × 0.00004 ETH, plus the ETH sent. */
+/* What an entrant paid, in ETH: the ETH sent plus the $FUEL taken, valued at the pool's price
+   at the moment of each entry (from the contract's own price log, see fuelEthAtEntry). Not at
+   whatever $FUEL costs now. */
 function entrantCostEth(m) {
   const K = S.K;
-  const fuelEth = K.fuelValue ? Number(E.formatEther(m.count * K.fuelValue)) : 0;
+  const fuelEth = m.fuelEth !== undefined ? m.fuelEth : (K.fuelValue ? Number(E.formatEther(m.count * K.fuelValue)) : 0);
   return Number(E.formatEther(m.eth)) + fuelEth;
 }
+const entrantFuelEth = m => m.fuelEth !== undefined ? m.fuelEth : (S.K.fuelValue ? Number(E.formatEther(m.count * S.K.fuelValue)) : 0);
 function entrantCost(m) {
   const v = entrantCostEth(m);
   return S.usd.eth ? fmtPrice(v * S.usd.eth, "$") : fmtPrice(v, "ETH");
@@ -2812,7 +2838,7 @@ function renderMinters() {
   box.innerHTML = `<table><thead><tr>
       <th>Entrant</th><th class="num">Entries</th><th class="num">${FUEL_MARK} used</th><th class="num">Share</th>
       <th class="num">Est. ${PAMP_MARK} <span class="derived" title="Today's emission times this entrant's share of today's entries. It changes with every new entry and is only final once the day closes.">now</span></th>
-      <th class="num">Cost <span class="derived" title="What this entrant paid: the ETH sent plus the $FUEL taken, valued at the pool's $FUEL price at the moment they entered (0.00004 ETH worth per entry), shown at today's ETH price.">paid</span></th>
+      <th class="num">Cost <span class="derived" title="What this entrant paid: the ETH sent plus the $FUEL taken, valued at the pool's $FUEL price at the moment they entered (from the contract's on-chain price log), shown at today's ETH price.">paid</span></th>
       <th class="num">Est. price / ${PAMP_MARK} <span class="derived" title="What one PAMP cost this entrant: the cost they paid (ETH plus $FUEL at the price when they entered), divided by the PAMP they would receive if the day closed now. It rises as more people enter.">now</span></th>
     </tr></thead><tbody>` +
     rows.slice(0, MAX).map(m => {
