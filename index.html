@@ -327,6 +327,13 @@
   .daypick-grid button.sel { background: rgba(150,201,156,0.20); color: var(--accent); border-color: var(--accent-dim); }
   .daypick-grid .dp-blank { height: 28px; }
   .daypick-foot { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-family: var(--sans); font-size: 11.5px; color: var(--text-dim); text-align: center; }
+  .cs-box { margin-top: 16px; padding: 16px; border: 1px solid var(--line); background: var(--bg); }
+  .cs-box[hidden] { display: none; }
+  .cs-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  .cs-actions .wide { flex: 1 1 auto; }
+  .claim-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .claim-row button { flex: 1 1 200px; }
+  .claim-row button:disabled { opacity: 0.45; cursor: not-allowed; }
   .amount-wrap { position: relative; }
   .amount-wrap input { padding-right: 62px; }
   .max-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 4px 10px; font-size: 12px; margin: 0; }
@@ -642,6 +649,44 @@
       <div class="sub-head" id="claimWrap">
         <div class="contract-head">Claimable days</div>
         <div id="claimBody" class="hint">Connect a wallet to see what you can claim.</div>
+        <div id="csBox" class="cs-box" hidden>
+          <div class="field">
+            <label for="csDays">Lock the claimed <span class="pamp-mark">$PAMP</span> for (days)</label>
+            <div class="days-wrap">
+              <input type="number" id="csDays" placeholder="90" min="7" max="1000" step="1" value="90" inputmode="numeric">
+              <button type="button" class="cal-btn" id="csCalBtn" aria-expanded="false" aria-label="Pick an unlock date" title="Pick an unlock date">
+                <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+                  <rect x="1.5" y="3" width="13" height="11.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M1.5 6.5h13" stroke="currentColor" stroke-width="1.3"/>
+                  <path d="M5 1.5v3M11 1.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <div class="daypick" id="csCal" hidden>
+                <div class="daypick-head">
+                  <button type="button" id="csPrev" aria-label="Previous month">&#8592;</button>
+                  <span id="csMonth">—</span>
+                  <button type="button" id="csNext" aria-label="Next month">&#8594;</button>
+                </div>
+                <div class="daypick-grid" id="csGrid"></div>
+                <div class="daypick-foot" id="csFoot"></div>
+              </div>
+            </div>
+            <div class="pct-row" id="csQuickDays">
+              <button class="pct-btn" data-days="7">7</button>
+              <button class="pct-btn" data-days="30">30</button>
+              <button class="pct-btn" data-days="90">90</button>
+              <button class="pct-btn" data-days="180">180</button>
+              <button class="pct-btn" data-days="365">365</button>
+              <button class="pct-btn" data-days="1000">1000</button>
+            </div>
+            <div class="preview" id="csPreview"></div>
+          </div>
+          <div class="hint" id="csHint">Two transactions: the claim, then the stake. Unstaking early costs a penalty, as on the staking tab.</div>
+          <div class="cs-actions">
+            <button id="csGo" class="wide">Claim and stake</button>
+            <button id="csCancel" class="sm">Cancel</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -1358,7 +1403,8 @@ const ABI = {
     "function totalSupply() view returns (uint256)",
     "function balanceOf(address) view returns (uint256)",
     "function MAX_SUPPLY() view returns (uint256)",
-    "function auction() view returns (address)"
+    "function auction() view returns (address)",
+    "function nonces(address) view returns (uint256)"
   ],
   moreSwap: [
     "function buy(uint256 minMoreOut) payable returns (uint256)",
@@ -1390,6 +1436,7 @@ const ABI = {
     "function getStakerID(address staker) view returns (uint256[])",
     "function getStakeInfo(uint256 stakeID) view returns (tuple(address staker, uint256 amount, uint256 startTime, uint256 endTime, uint256 claimTime, uint256 duration, uint256 rewardPerToken, uint256 claimed, uint256 penalty, bool status))",
     "function stake(uint256 amount, uint256 stakeDays)",
+    "function stakeWithPermit(uint256 amount, uint256 stakeDays, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
     "function unstake(uint256 stakeID)"
   ],
   erc20: ["function balanceOf(address) view returns (uint256)", "function totalSupply() view returns (uint256)",
@@ -1933,21 +1980,140 @@ function renderStakeWallet() {
     <div class="wallet-balance">${fmtEth(S.ethBal, 5)}${S.W ? " · " + fmtTok(S.W.fuelBal, 0) + " " + FUEL_MARK : ""} available</div>`;
 }
 
+/* The staking allowance counts as "approved" when it covers far more than anyone could ever
+   claim: an unlimited approval, or anything above the token's hard cap. */
+const stakingApproved = () => S.W && (S.W.stakeAllow ?? 0n) >= (S.K.maxSupply || E.parseEther("100000000"));
+function approveRow() {
+  if (!stakingDeployed()) return "";
+  return stakingApproved()
+    ? `<button id="approveStake" disabled title="The staking contract may already spend your PAMP, so Claim + stake needs no approval or signature.">Staking approved ✓</button>`
+    : `<button id="approveStake" title="Let the staking contract spend your PAMP now, so Claim + stake is one transaction after the claim. Optional: without it, the stake asks for a signature instead.">Approve staking</button>`;
+}
+function bindApprove() {
+  const b = $("approveStake"); if (!b || b.disabled) return;
+  b.onclick = async () => {
+    if (!S.signer) return connect();
+    const t = new E.Contract(A.token, ABI.erc20, S.signer);
+    await withTx(b, "Approval of PAMP for staking", () => t.approve(A.staking, E.MaxUint256));
+    await loadWallet().catch(() => {});
+  };
+}
 function renderClaims() {
-  const W = S.W, K = S.K;
+  const W = S.W, K = S.K, L = S.L;
   if (!S.account) { $("claimBody").innerHTML = `<span class="hint">Connect a wallet to see what you can claim.</span>`; return; }
   if (!W || !W.range) { $("claimBody").innerHTML = `<span class="hint">Loading…</span>`; return; }
   const [days, amounts, total] = W.range;
   if (!days.length) {
-    $("claimBody").innerHTML = `<span class="hint">Nothing to claim yet. A day becomes claimable once it closes.</span>`;
+    // Nothing closed yet: the buttons wait, greyed out, showing what today would deliver.
+    const est = (W.todayMints > 0 && L.emission && L.mintsSold > 0) ? (L.emission * BigInt(W.todayMints)) / BigInt(L.mintsSold) : 0n;
+    const estText = est > 0n ? `≈ ${fmtTok(est, 2)} ${K.symbol || "PAMP"}` : "nothing yet";
+    $("claimBody").innerHTML = `
+      <span class="hint">${est > 0n ? `Your ${nf(W.todayMints)} ${W.todayMints === 1 ? "entry" : "entries"} today would give ${estText} if the day closed now. It becomes claimable at the rollover.` : "Nothing to claim yet. A day becomes claimable once it closes."}</span>
+      <div class="claim-row">
+        <button id="claimAll" disabled title="Available once today closes.">Claim — ${estText}</button>
+        <button id="claimStake" disabled title="Available once today closes."${stakingDeployed() ? "" : " hidden"}>Claim + stake — ${estText}</button>
+        ${approveRow()}
+      </div>`;
+    bindApprove();
+    $("csBox").hidden = true;
     return;
   }
   $("claimBody").innerHTML = `
     <table><thead><tr><th>Day</th><th class="num">${PAMP_MARK}</th></tr></thead>
     <tbody>${days.map((d, i) => `<tr><td>${Number(d) <= DAY_OFFSET ? "pre-launch" : dispDay(Number(d))}</td><td class="num">${pamp$(amounts[i], 4)}</td></tr>`).join("")}</tbody></table>
-    <button id="claimAll">Claim ${days.length} day${days.length > 1 ? "s" : ""} — ${fmtTok(total, 2)} ${K.symbol}</button>`;
+    <div class="claim-row">
+      <button id="claimAll">Claim ${days.length} day${days.length > 1 ? "s" : ""} — ${fmtTok(total, 2)} ${K.symbol}</button>
+      <button id="claimStake"${stakingDeployed() ? "" : " hidden"}>Claim + stake — ${fmtTok(total, 2)} ${K.symbol}</button>
+      ${approveRow()}
+    </div>`;
   $("claimAll").onclick = () => doClaim(days.map(Number));
+  $("claimStake").onclick = () => { $("csBox").hidden = !$("csBox").hidden; if (!$("csBox").hidden) { syncClaimStake(); $("csDays").focus(); } };
+  bindApprove();
+  if (!$("csBox").hidden) syncClaimStake();
 }
+
+/* ---- claim + stake: claim every closed day, then lock what arrived in one more transaction ---- */
+function csDays() { const d = parseInt($("csDays").value || "0", 10); return isFinite(d) ? d : 0; }
+function clampClaimStakeDays() {
+  const raw = ($("csDays").value || "").trim();
+  if (raw === "") { syncClaimStake(); return; }
+  let d = csDays();
+  if (d < STK.MIN_DAYS) d = STK.MIN_DAYS; if (d > STK.MAX_DAYS) d = STK.MAX_DAYS;
+  $("csDays").value = d; syncClaimStake();
+}
+function syncClaimStake() {
+  const days = csDays(), W = S.W, K = S.K;
+  document.querySelectorAll("#csQuickDays .pct-btn").forEach(b => b.classList.toggle("sel", Number(b.dataset.days) === days));
+  const total = W && W.range ? W.range[2] : 0n;
+  if (days >= STK.MIN_DAYS && days <= STK.MAX_DAYS) {
+    const unlock = new Date((nowTs() + days * 86400) * 1000);
+    $("csPreview").textContent = `Unlocks ${unlock.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })} · penalty-free window until ${new Date((nowTs() + (days + STK.GRACE_DAYS) * 86400) * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  } else if (days > 0 && days < STK.MIN_DAYS) $("csPreview").textContent = `Minimum lock is ${STK.MIN_DAYS} days — this will become ${STK.MIN_DAYS}.`;
+  else if (days > STK.MAX_DAYS) $("csPreview").textContent = `Maximum lock is ${nf(STK.MAX_DAYS)} days — this will become ${nf(STK.MAX_DAYS)}.`;
+  else $("csPreview").textContent = `Choose ${STK.MIN_DAYS} to ${nf(STK.MAX_DAYS)} days.`;
+  $("csHint").textContent = stakingApproved()
+    ? "Two transactions: the claim, then the stake. Staking is already approved, so nothing else is asked. Unstaking early costs a penalty, as on the staking tab."
+    : "Two transactions: the claim, then the stake. The stake asks for a signature instead of an approval, unless you approve staking first. Unstaking early costs a penalty, as on the staking tab.";
+  const ok = total > 0n && days >= STK.MIN_DAYS && days <= STK.MAX_DAYS;
+  $("csGo").disabled = !ok || !S.signer;
+  $("csGo").textContent = !S.signer ? "Connect wallet" : total > 0n ? `Claim ${fmtTok(total, 2)} ${K.symbol || "PAMP"} and stake it for ${nf(days)} day${days === 1 ? "" : "s"}` : "Nothing to claim";
+}
+/* An EIP-2612 permit signed by the wallet: the staking contract spends the tokens with it, so
+   there is no approval transaction. Falls back to approve + stake if the wallet cannot sign. */
+async function signPermit(owner, spender, value, deadline) {
+  const t = new E.Contract(A.token, ABI.token, S.signer);
+  const [name, nonce] = await Promise.all([t.name(), t.nonces(owner)]);
+  const domain = { name, version: "1", chainId: CHAIN.id, verifyingContract: A.token };
+  const types = { Permit: [
+    { name: "owner", type: "address" }, { name: "spender", type: "address" }, { name: "value", type: "uint256" },
+    { name: "nonce", type: "uint256" }, { name: "deadline", type: "uint256" }
+  ] };
+  const sig = await S.signer.signTypedData(domain, types, { owner, spender, value, nonce, deadline });
+  return E.Signature.from(sig);
+}
+async function doClaimStake() {
+  if (!S.signer) return connect();
+  clampClaimStakeDays();
+  const W = S.W, days = csDays();
+  if (!W || !W.range || !W.range[0].length || days < STK.MIN_DAYS || days > STK.MAX_DAYS) return;
+  const claimDays = W.range[0].map(Number), btn = $("csGo");
+  const auction = new E.Contract(A.auction, ABI.auction, S.signer);
+  const staking = new E.Contract(A.staking, ABI.staking, S.signer);
+  const before = W.bal ?? 0n;
+  // 1. the claim
+  const ok = await withTx(btn, `Claim of ${claimDays.length} day${claimDays.length > 1 ? "s" : ""}`, () => claimDays.length === 1 ? auction.claim(claimDays[0]) : auction.claimMany(claimDays));
+  if (!ok) { syncClaimStake(); return; }
+  await loadWallet().catch(() => {});
+  // stake exactly what the claim delivered (the balance difference), never pre-existing tokens
+  const amt = (S.W && S.W.bal > before) ? S.W.bal - before : 0n;
+  if (amt <= 0n) { toast("The claim landed but no new PAMP showed up in the wallet yet. Stake it from the staking tab in a moment.", "err"); syncClaimStake(); return; }
+  // 2. the stake: a permit signature if the allowance is short, a plain stake if not
+  let staked = false;
+  if ((S.W.stakeAllow ?? 0n) >= amt) {
+    staked = await withTx(btn, `Stake of ${fmtTok(amt, 2)} PAMP for ${days} days`, () => staking.stake(amt, days));
+  } else {
+    let sig = null;
+    const deadline = nowTs() + 3600;
+    try { sig = await signPermit(S.account, A.staking, amt, deadline); }
+    catch (e) { toast("Signature declined or unsupported — approving instead.", ""); }
+    if (sig) staked = await withTx(btn, `Stake of ${fmtTok(amt, 2)} PAMP for ${days} days`, () => staking.stakeWithPermit(amt, days, deadline, sig.v, sig.r, sig.s));
+    else {
+      const t = new E.Contract(A.token, ABI.erc20, S.signer);
+      const approved = await withTx(btn, "Approval of PAMP", () => t.approve(A.staking, E.MaxUint256));
+      if (approved) staked = await withTx(btn, `Stake of ${fmtTok(amt, 2)} PAMP for ${days} days`, () => staking.stake(amt, days));
+    }
+  }
+  if (staked) { $("csBox").hidden = true; toast(`${fmtTok(amt, 2)} PAMP claimed and staked for ${days} days.`); }
+  await loadWallet().catch(() => {});
+  syncClaimStake();
+}
+$("csDays").addEventListener("input", syncClaimStake);
+$("csDays").addEventListener("blur", clampClaimStakeDays);
+$("csDays").addEventListener("keydown", e => { if (e.key === "Enter") clampClaimStakeDays(); });
+document.querySelectorAll("#csQuickDays .pct-btn").forEach(b => b.onclick = () => { $("csDays").value = b.dataset.days; syncClaimStake(); });
+$("csGo").onclick = doClaimStake;
+$("csCancel").onclick = () => { $("csBox").hidden = true; };
+makeDaypick({ input: "csDays", btn: "csCalBtn", pop: "csCal", prev: "csPrev", month: "csMonth", next: "csNext", grid: "csGrid", foot: "csFoot" }, clampClaimStakeDays);
 
 /* ===================================================================
    Staking
@@ -2043,49 +2209,55 @@ $("stkDays").addEventListener("keydown", e => { if (e.key === "Enter") clampStak
 /* ---- Pick the unlock date (the $MORE dashboard's picker) ----
    The contract takes a day count, so this only ever works one out: choose a date and it
    fills the field with the number of days to it. Bounds are the staking contract's. */
-let dpView = null;
 const dpMidnight = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const dpDaysBetween = (from, to) => Math.round((dpMidnight(to) - dpMidnight(from)) / 86400000);
-function dpOpen() {
-  const days = stkDays();
-  const base = days >= STK.MIN_DAYS && days <= STK.MAX_DAYS ? new Date(Date.now() + days * 86400000) : new Date(Date.now() + STK.MIN_DAYS * 86400000);
-  dpView = new Date(base.getFullYear(), base.getMonth(), 1);
-  $("daysCal").hidden = false; $("daysCalBtn").setAttribute("aria-expanded", "true");
-  dpRender();
-}
-function dpClose() { $("daysCal").hidden = true; $("daysCalBtn").setAttribute("aria-expanded", "false"); }
-function dpRender() {
-  const first = dpMidnight(new Date(Date.now() + STK.MIN_DAYS * 86400000));
-  const last = dpMidnight(new Date(Date.now() + STK.MAX_DAYS * 86400000));
-  const d0 = stkDays();
-  const chosen = d0 >= STK.MIN_DAYS && d0 <= STK.MAX_DAYS ? dpMidnight(new Date(Date.now() + d0 * 86400000)) : null;
-  $("dpMonth").textContent = dpView.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  $("dpPrev").disabled = new Date(dpView.getFullYear(), dpView.getMonth(), 0) < first;
-  $("dpNext").disabled = new Date(dpView.getFullYear(), dpView.getMonth() + 1, 1) > last;
-  let html = ["S", "M", "T", "W", "T", "F", "S"].map(w => `<span class="dp-head">${w}</span>`).join("");
-  const lead = new Date(dpView.getFullYear(), dpView.getMonth(), 1).getDay();
-  for (let i = 0; i < lead; i++) html += `<span class="dp-blank"></span>`;
-  const inMonth = new Date(dpView.getFullYear(), dpView.getMonth() + 1, 0).getDate();
-  for (let day = 1; day <= inMonth; day++) {
-    const d = dpMidnight(new Date(dpView.getFullYear(), dpView.getMonth(), day));
-    const ok = d >= first && d <= last, isSel = chosen && d.getTime() === chosen.getTime();
-    html += `<button type="button" data-days="${dpDaysBetween(new Date(), d)}" class="${isSel ? "sel" : ""}"${ok ? "" : " disabled"} aria-label="${d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}">${day}</button>`;
+/* One picker per days field. ids: the input, the calendar button, the popover, and the
+   popover's prev/month/next/grid/foot. onPick runs after a date fills the field. */
+function makeDaypick(ids, onPick) {
+  const el = k => $(ids[k]);
+  const days = () => { const d = parseInt(el("input").value || "0", 10); return isFinite(d) ? d : 0; };
+  let view = null;
+  function open() {
+    const d = days();
+    const base = d >= STK.MIN_DAYS && d <= STK.MAX_DAYS ? new Date(Date.now() + d * 86400000) : new Date(Date.now() + STK.MIN_DAYS * 86400000);
+    view = new Date(base.getFullYear(), base.getMonth(), 1);
+    el("pop").hidden = false; el("btn").setAttribute("aria-expanded", "true");
+    render();
   }
-  $("dpGrid").innerHTML = html;
-  $("dpFoot").textContent = d0 >= STK.MIN_DAYS ? `${nf(d0)} day${d0 === 1 ? "" : "s"} from today` : `${STK.MIN_DAYS} to ${nf(STK.MAX_DAYS)} days from today`;
-}
-(function dpBind() {
-  const btn = $("daysCalBtn"), pop = $("daysCal");
-  btn.addEventListener("click", e => { e.stopPropagation(); pop.hidden ? dpOpen() : dpClose(); });
-  $("dpPrev").addEventListener("click", () => { dpView = new Date(dpView.getFullYear(), dpView.getMonth() - 1, 1); dpRender(); });
-  $("dpNext").addEventListener("click", () => { dpView = new Date(dpView.getFullYear(), dpView.getMonth() + 1, 1); dpRender(); });
-  $("dpGrid").addEventListener("click", e => {
+  function close() { el("pop").hidden = true; el("btn").setAttribute("aria-expanded", "false"); }
+  function render() {
+    const first = dpMidnight(new Date(Date.now() + STK.MIN_DAYS * 86400000));
+    const last = dpMidnight(new Date(Date.now() + STK.MAX_DAYS * 86400000));
+    const d0 = days();
+    const chosen = d0 >= STK.MIN_DAYS && d0 <= STK.MAX_DAYS ? dpMidnight(new Date(Date.now() + d0 * 86400000)) : null;
+    el("month").textContent = view.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    el("prev").disabled = new Date(view.getFullYear(), view.getMonth(), 0) < first;
+    el("next").disabled = new Date(view.getFullYear(), view.getMonth() + 1, 1) > last;
+    let html = ["S", "M", "T", "W", "T", "F", "S"].map(w => `<span class="dp-head">${w}</span>`).join("");
+    const lead = new Date(view.getFullYear(), view.getMonth(), 1).getDay();
+    for (let i = 0; i < lead; i++) html += `<span class="dp-blank"></span>`;
+    const inMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+    for (let day = 1; day <= inMonth; day++) {
+      const d = dpMidnight(new Date(view.getFullYear(), view.getMonth(), day));
+      const ok = d >= first && d <= last, isSel = chosen && d.getTime() === chosen.getTime();
+      html += `<button type="button" data-days="${dpDaysBetween(new Date(), d)}" class="${isSel ? "sel" : ""}"${ok ? "" : " disabled"} aria-label="${d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}">${day}</button>`;
+    }
+    el("grid").innerHTML = html;
+    el("foot").textContent = d0 >= STK.MIN_DAYS ? `${nf(d0)} day${d0 === 1 ? "" : "s"} from today` : `${STK.MIN_DAYS} to ${nf(STK.MAX_DAYS)} days from today`;
+  }
+  const btn = el("btn"), pop = el("pop");
+  btn.addEventListener("click", e => { e.stopPropagation(); pop.hidden ? open() : close(); });
+  el("prev").addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); });
+  el("next").addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); });
+  el("grid").addEventListener("click", e => {
     const cell = e.target.closest("button[data-days]"); if (!cell || cell.disabled) return;
-    $("stkDays").value = cell.dataset.days; clampStakeDays(); dpClose(); $("stkDays").focus();
+    el("input").value = cell.dataset.days; close(); onPick(); el("input").focus();
   });
-  document.addEventListener("click", e => { if (!pop.hidden && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) dpClose(); });
-  document.addEventListener("keydown", e => { if (e.key === "Escape" && !pop.hidden) { dpClose(); btn.focus(); } });
-})();
+  document.addEventListener("click", e => { if (!pop.hidden && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !pop.hidden) { close(); btn.focus(); } });
+  return { open, close, render };
+}
+makeDaypick({ input: "stkDays", btn: "daysCalBtn", pop: "daysCal", prev: "dpPrev", month: "dpMonth", next: "dpNext", grid: "dpGrid", foot: "dpFoot" }, clampStakeDays);
 $("stkMax").onclick = () => { if (S.W) { $("stkAmount").value = E.formatEther(S.W.bal); syncStakeForm(); } };
 document.querySelectorAll("#stkPct .pct-btn").forEach(b => b.onclick = () => {
   if (!S.W) return;
@@ -2599,11 +2771,12 @@ function renderEntriesChart() {
 /* What an entrant paid, in ETH: the ETH itself plus their $FUEL valued at the auction's own
    rate (0.00004 ETH per entry's worth of FUEL, read from the contract), so no outside price
    feed is needed. */
+/* What an entrant paid, in ETH. The contract takes exactly 0.00004 ETH worth of $FUEL at the
+   pool's price at the moment of each entry, so the $FUEL side is valued at that price, not
+   at whatever $FUEL costs now: count × 0.00004 ETH, plus the ETH sent. */
 function entrantCostEth(m) {
-  const L = S.L, K = S.K;
-  let fuelEth = 0;
-  if (L.fuelPerEntry && L.fuelPerEntry > 0n && K.fuelValue) fuelEth = Number(E.formatEther(m.fuel)) * Number(E.formatEther(K.fuelValue)) / Number(E.formatEther(L.fuelPerEntry));
-  else if (S.usd.eth && S.usd.fuel) fuelEth = Number(E.formatEther(m.fuel)) * S.usd.fuel / S.usd.eth;
+  const K = S.K;
+  const fuelEth = K.fuelValue ? Number(E.formatEther(m.count * K.fuelValue)) : 0;
   return Number(E.formatEther(m.eth)) + fuelEth;
 }
 function entrantCost(m) {
@@ -2639,8 +2812,8 @@ function renderMinters() {
   box.innerHTML = `<table><thead><tr>
       <th>Entrant</th><th class="num">Entries</th><th class="num">${FUEL_MARK} used</th><th class="num">Share</th>
       <th class="num">Est. ${PAMP_MARK} <span class="derived" title="Today's emission times this entrant's share of today's entries. It changes with every new entry and is only final once the day closes.">now</span></th>
-      <th class="num">Cost <span class="derived" title="What this entrant paid: the ETH plus the value of the $FUEL they used, at today's prices.">paid</span></th>
-      <th class="num">Est. price / ${PAMP_MARK} <span class="derived" title="What one PAMP cost this entrant: the ETH they paid plus the dollar value of the $FUEL they used, at today's ETH and $FUEL prices, divided by the PAMP they would receive if the day closed now. It rises as more people enter.">now</span></th>
+      <th class="num">Cost <span class="derived" title="What this entrant paid: the ETH sent plus the $FUEL taken, valued at the pool's $FUEL price at the moment they entered (0.00004 ETH worth per entry), shown at today's ETH price.">paid</span></th>
+      <th class="num">Est. price / ${PAMP_MARK} <span class="derived" title="What one PAMP cost this entrant: the cost they paid (ETH plus $FUEL at the price when they entered), divided by the PAMP they would receive if the day closed now. It rises as more people enter.">now</span></th>
     </tr></thead><tbody>` +
     rows.slice(0, MAX).map(m => {
       const you = me && m.addr.toLowerCase() === me;
@@ -3219,8 +3392,10 @@ async function withTx(btn, label, fn) {
     await tx.wait();
     toast(label + " confirmed.");
     S.busy = true; await loadLive().catch(() => {}); S.busy = false;
+    return true;
   } catch (e) {
     toast(explainError(e), "err");
+    return false;
   } finally {
     btn.disabled = false; btn.textContent = old;
     syncCount();
