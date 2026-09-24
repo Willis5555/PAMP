@@ -685,7 +685,7 @@
           <div class="field">
             <label for="csDays">Lock the claimed <span class="pamp-mark">$PAMP</span> for (days)</label>
             <div class="days-wrap">
-              <input type="number" id="csDays" placeholder="90" min="7" max="1000" step="1" value="90" inputmode="numeric">
+              <input type="number" id="csDays" placeholder="1000" min="7" max="1000" step="1" value="1000" inputmode="numeric">
               <button type="button" class="cal-btn" id="csCalBtn" aria-expanded="false" aria-label="Pick an unlock date" title="Pick an unlock date">
                 <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
                   <rect x="1.5" y="3" width="13" height="11.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
@@ -964,6 +964,18 @@
       <div class="contracts">
         <div class="contract-head">Contracts — every address below is read back from the chain and compared with what this page has hard-coded, and checked for published source.</div>
         <div id="wiring" class="hint">Loading…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ supply ============================ -->
+  <section>
+    <h2>Supply</h2>
+    <div class="panel">
+      <div id="supplyChart" class="hint">Loading…</div>
+      <div class="hint" id="supplyChartNote">
+        Total PAMP in existence, day by day: every closed day adds its emission, split among
+        that day's entrants. A day nobody entered adds nothing. Today's point is still filling.
       </div>
     </div>
   </section>
@@ -1844,7 +1856,8 @@ async function loadLive() {
   if (auctionDeployed() && !S.mintScanBusy) {
     S.mintScanBusy = true;
     Promise.all([scanMints(), scanClaims().catch(e => console.warn("[claims] scan failed:", e))])
-      .then(() => { renderMinters(); renderCycles(); }).catch(e => console.warn("[mints] scan failed:", e)).finally(() => { S.mintScanBusy = false; });
+      .then(() => { renderMinters(); renderCycles(); return loadSupplySeries().then(renderSupplyChart).catch(e => console.warn("[supply] failed:", e)); })
+      .catch(e => console.warn("[mints] scan failed:", e)).finally(() => { S.mintScanBusy = false; });
   }
   if (S.account) await loadWallet();
   syncCount();
@@ -2691,6 +2704,85 @@ async function scanClaims() {
   C.scannedTo = head;
 }
 
+/* ---- supply over time: cumulative emission of every day that sold entries ---- */
+async function loadSupplySeries() {
+  const L = S.L, K = S.K, M = S.mints;
+  if (!auctionDeployed() || !L.day || !M) { S.supplySeries = null; return; }
+  const today = Math.min(L.day, K.totalDays || 1000);
+  const sold = d => { let n = 0n; for (const b of (M.days.get(d) || new Map()).values()) n += b.count; return n; };
+  // emission for every day that sold something, read once and kept in the same cache the cycle pages use
+  const need = [];
+  for (let d = 1; d <= today; d++) if (sold(d) > 0n && !CYC.emission.has(d)) need.push(d);
+  for (let i = 0; i < need.length; i += 250) {
+    const chunk = need.slice(i, i + 250);
+    const r = await mc(chunk.map(d => call(A.schedule, I.schedule, "emissionFor", [d])));
+    chunk.forEach((d, j) => { const v = dec(I.schedule, "emissionFor", r[j]); if (v !== null) CYC.emission.set(d, v); });
+  }
+  const pts = []; let cum = 0n;
+  for (let d = 1; d <= today; d++) {
+    const n = sold(d);
+    const e = n > 0n ? (CYC.emission.get(d) ?? 0n) : 0n;
+    cum += e;
+    if (d <= DAY_OFFSET) continue;   // the pre-launch day counts toward the total but the chart starts at day 1
+    pts.push({ day: d, v: Number(E.formatEther(cum)), add: Number(E.formatEther(e)), entries: Number(n), partial: d === L.day });
+  }
+  S.supplySeries = pts;
+}
+const fmtShort = v => v >= 1e9 ? (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? (v / 1e6).toFixed(2) + "M" : v >= 1e3 ? (v / 1e3).toFixed(0) + "k" : nf(v, 0);
+function renderSupplyChart() {
+  const box = $("supplyChart"), pts = S.supplySeries, L = S.L, K = S.K;
+  if (!auctionDeployed() || L.day === undefined) { box.innerHTML = `<span class="hint">Day 1 opens ${LAUNCH_TEXT}.</span>`; return; }
+  if (!pts) { box.innerHTML = `<span class="hint">Loading…</span>`; return; }
+  if (!pts.length) { box.innerHTML = `<span class="hint">Day 1 starts at the next rollover.</span>`; return; }
+  const W = 660, H = 190, padL = 62, padR = 14, padT = 14, padB = 30, color = "#96c99c";
+  const vals = pts.map(p => p.v);
+  let lo = 0, hi = Math.max(...vals);
+  if (hi <= 0) hi = 1; else hi *= 1.08;
+  const x = i => padL + (pts.length === 1 ? 0 : i / (pts.length - 1)) * (W - padL - padR);
+  const y = v => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
+  const line = pts.map((p, i) => `${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const area = `${padL},${(H - padB).toFixed(1)} ${line} ${x(pts.length - 1).toFixed(1)},${(H - padB).toFixed(1)}`;
+  const grid = [0, .25, .5, .75, 1].map(f => {
+    const v = lo + (hi - lo) * (1 - f), yy = y(v);
+    return `<line x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" stroke="#35453b" stroke-dasharray="2 4"/>
+            <text x="${padL - 8}" y="${(yy + 4).toFixed(1)}" fill="#bcc7be" font-size="11" text-anchor="end" font-family="JetBrains Mono,Courier New,monospace">${fmtShort(v)}</text>`;
+  }).join("");
+  const dayLbl = p => p.day <= DAY_OFFSET ? "pre-launch" : "day " + dispDay(p.day);
+  const step = pts.length > 1 ? (W - padL - padR) / (pts.length - 1) : (W - padL - padR);
+  const hover = pts.map((p, i) => {
+    const cx = x(i), cy = y(p.v);
+    const bx = Math.max(padL, cx - step / 2), bw = Math.min(W - padR, cx + step / 2) - bx;
+    return `<g class="hovg">
+      <line class="xh" x1="${cx.toFixed(1)}" y1="${padT}" x2="${cx.toFixed(1)}" y2="${(H - padB).toFixed(1)}" stroke="${color}" stroke-width="1" stroke-opacity="0.5"/>
+      <circle class="xh" cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${color}"/>
+      <rect class="charthit" x="${bx.toFixed(1)}" y="${padT}" width="${Math.max(1, bw).toFixed(1)}" height="${(H - padT - padB).toFixed(1)}"
+        data-day="${dayLbl(p).replace(/^./, c => c.toUpperCase())}${p.partial ? " (today)" : ""}" data-val="${nf(p.v, 0)} PAMP in supply${p.add > 0 ? " · +" + nf(p.add, 0) + " that day" : p.entries === 0 && !p.partial ? " · nobody entered" : ""}"${p.partial ? ' data-partial="1"' : ""}></rect>
+    </g>`;
+  }).join("");
+  const lastI = pts.length - 1, ticks = Math.min(5, pts.length);
+  const idx = pts.length === 1 ? [0] : [...new Set(Array.from({ length: ticks }, (_, i) => Math.round(i * lastI / (ticks - 1))))];
+  const xLabels = idx.map(i => {
+    const anchor = i === 0 ? "start" : i === lastI ? "end" : "middle";
+    const xx = i === 0 ? padL : i === lastI ? W - padR : x(i);
+    return `<text x="${xx.toFixed(1)}" y="${H - 8}" fill="#bcc7be" font-size="11" text-anchor="${anchor}" font-family="JetBrains Mono,Courier New,monospace">${dayLbl(pts[i])}</text>`;
+  }).join("");
+  const last = pts[lastI];
+  box.innerHTML = `<div class="chartwrap">
+    <svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%;height:auto" role="img" aria-label="PAMP supply from day 1 to ${dayLbl(last)}, now ${nf(last.v, 0)} PAMP">
+      ${grid}
+      <polygon points="${area}" fill="${color}" opacity="0.10"/>
+      <polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.8"/>
+      <circle cx="${x(lastI).toFixed(1)}" cy="${y(last.v).toFixed(1)}" r="3.5" fill="${last.partial ? "#e0b358" : color}"/>
+      ${hover}
+      ${xLabels}
+    </svg>
+    <div class="chart-tip" hidden></div>
+  </div>`;
+  const minted = L.supply ?? 0n, cap = K.maxSupply ?? 0n;
+  const emitted = last.v, mintedN = Number(E.formatEther(minted));
+  $("supplyChartNote").innerHTML = `<b>${nf(emitted, 0)} ${PAMP_MARK}</b> emitted so far${last.partial ? " (today included as it stands)" : ""} · <b>${nf(mintedN, 0)}</b> actually minted, the rest waits to be claimed${cap > 0n ? ` · ${(emitted / Number(E.formatEther(cap)) * 100).toFixed(2)}% of the ${nf(Number(E.formatEther(cap)), 0)} cap` : ""}. Every closed day adds its emission, split among that day's entrants; a day nobody entered adds nothing.`;
+}
+
 /* ---- past cycles: one page per closed day, newest first ---- */
 const CYC = { day: null, emission: new Map(), loading: new Set() };
 function closedDays() {
@@ -3138,7 +3230,7 @@ document.querySelectorAll("#msQuick .pct-btn").forEach(b => b.onclick = () => { 
 
 /* ---- $FUEL buy and burn ---- */
 /* ---- chart hover readout, delegated because the charts are rebuilt on every refresh ---- */
-const CHART_HOSTS = ["curve", "entriesChart"];
+const CHART_HOSTS = ["curve", "entriesChart", "supplyChart"];
 function clearChartTips(keep) {
   CHART_HOSTS.forEach(id => $(id).querySelectorAll(".chart-tip").forEach(t => { if (t !== keep) t.hidden = true; }));
 }
