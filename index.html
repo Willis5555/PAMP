@@ -327,6 +327,12 @@
   .daypick-grid button.sel { background: rgba(150,201,156,0.20); color: var(--accent); border-color: var(--accent-dim); }
   .daypick-grid .dp-blank { height: 28px; }
   .daypick-foot { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-family: var(--sans); font-size: 11.5px; color: var(--text-dim); text-align: center; }
+  .lookup { margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .lookup[hidden] { display: none; }
+  .lookup label { display: block; font-family: var(--sans); font-size: 13px; color: var(--text-dim); margin-bottom: 8px; }
+  .lookup-row { display: flex; gap: 10px; align-items: stretch; }
+  .lookup-row input { flex: 1 1 auto; min-width: 0; }
+  .lookup-row button { margin: 0; flex: 0 0 auto; }
   .cs-box { margin-top: 16px; padding: 16px; border: 1px solid var(--line); background: var(--bg); }
   .cs-box[hidden] { display: none; }
   .cs-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
@@ -617,7 +623,6 @@
             <div class="line sub" id="costFuelNote">—</div>
             <div class="line total"><span>You would get <span class="derived" title="If the day closed right now with your entries included. It falls as other people enter, and is only final once the day closes.">if the day closed now</span></span><strong id="projShare">—</strong></div>
           </div>
-          <div class="split" id="splitPreview"></div>
           <div class="hint" id="priceLine" style="margin-top:10px"></div>
         </div>
       </div>
@@ -671,6 +676,14 @@
   <section>
     <h2>YOUR ENTRIES</h2>
     <div class="panel">
+      <div class="lookup" id="lookupRow">
+        <label for="lookupAddr">Check any address</label>
+        <div class="lookup-row">
+          <input type="text" id="lookupAddr" placeholder="0x… — no wallet needed" autocomplete="off" spellcheck="false" inputmode="text">
+          <button class="sm" id="lookupBtn">Look up</button>
+        </div>
+        <div class="hint">Entries, claims and stakes are public, so any address can be read without connecting. Claiming and staking still need the holder's wallet.</div>
+      </div>
       <div class="grid">
         <div class="cell"><span class="k"><span class="pamp-mark">$PAMP</span> held</span><span class="v" id="wBal">—</span></div>
         <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL held</span><span class="v" id="wFuel">—</span><span class="note" id="wFuelNote">—</span></div>
@@ -1722,6 +1735,9 @@ async function startup(attempt) {
     await buildWiring();
     refreshMoreSwapQuote().catch(() => {});
     S.busy = false; S.loaded = true;
+    // ?a=0x… opens the page straight onto that address, read-only, unless a wallet is connected
+    const qa = new URLSearchParams(location.search || "").get("a");
+    if (qa && !S.signer && !S.account) { $("lookupAddr").value = qa; lookupAddress().catch(() => {}); }
     $("busy").hidden = true;
     fetchPrices().catch(() => {});
   } catch (e) {
@@ -3398,8 +3414,6 @@ function syncCount() {
 
   const value = (K.entryValue ?? E.parseEther("0.0001")) * BigInt(n);
   const fuelValue = (K.fuelValue ?? E.parseEther("0.00004")) * BigInt(n);
-  const toMore = (value * BigInt(K.moreBps || 2000)) / 10000n;
-  const toFund = (value * BigInt(K.fundBps || 4000)) / 10000n;
   const ethCost = (K.ethPerEntry ?? E.parseEther("0.00006")) * BigInt(n);
   const fuelNeed = L.fuelPerEntry ? L.fuelPerEntry * BigInt(n) : null;
 
@@ -3421,10 +3435,7 @@ function syncCount() {
     $("projShare").innerHTML = pamp$(share, 2);
   } else $("projShare").textContent = "—";
 
-  $("splitPreview").innerHTML =
-    `<span class="pill">40% <b>${fmtEth(fuelValue, 6)}</b> of ${FUEL_MARK} burned</span>` +
-    `<span class="pill">20% <b>${fmtEth(toMore, 6)}</b> buys &amp; burns ${MORE_MARK}</span>` +
-    `<span class="pill">40% <b>${fmtEth(toFund, 6)}</b> to the PAMP fund</span>`;
+
 
   // The only thing that pauses pricing is a pool oracle with too little history.
   const pn = $("priceNote");
@@ -3517,6 +3528,7 @@ async function connect() {
     await ensureChain();
     S.signer = await S.wallet.getSigner();
     S.account = await S.signer.getAddress();
+    S.viewOnly = false; $("lookupRow").hidden = true;
     $("walletStatus").innerHTML = `<span class="addr">${short(S.account)}</span>`;
     $("connect").textContent = "Connected";
     $("connect").disabled = true;
@@ -3526,6 +3538,27 @@ async function connect() {
   } catch (e) { toast(explainError(e), "err"); }
 }
 $("connect").onclick = connect;
+
+/* Look at any address without a wallet: the same reads the connected view uses, with
+   nothing to sign. A connected wallet always shows its own, so the row hides on connect. */
+async function lookupAddress() {
+  if (S.signer) return;
+  let addr;
+  try { addr = E.getAddress($("lookupAddr").value.trim()); }
+  catch { toast("That is not a valid address.", "err"); return; }
+  const btn = $("lookupBtn");
+  btn.disabled = true; btn.textContent = "Reading…";
+  S.account = addr; S.viewOnly = true;
+  $("walletStatus").innerHTML = `<span class="addr">${short(addr)}</span> · viewing, read-only`;
+  try {
+    await loadWallet();
+    syncCount(); renderMinters(); syncStakeForm(); renderStakes(); renderStakeWalletLine();
+    if (location.protocol !== "file:") history.replaceState(null, "", location.pathname + "?a=" + addr + location.hash);
+  } catch (e) { toast(explainError(e), "err"); }
+  finally { btn.disabled = false; btn.textContent = "Look up"; }
+}
+$("lookupBtn").onclick = lookupAddress;
+$("lookupAddr").addEventListener("keydown", e => { if (e.key === "Enter") lookupAddress(); });
 
 if (window.ethereum) {
   window.ethereum.on?.("accountsChanged", () => location.reload());
