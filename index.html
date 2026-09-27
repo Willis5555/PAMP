@@ -702,6 +702,14 @@
             <button class="pct-btn" data-q="500">500</button>
             <button class="pct-btn" data-q="1000">1000</button>
           </div>
+          <div class="field" style="margin-top:16px; margin-bottom:0">
+            <label for="fuelIn">Or enter an amount of <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL to spend</label>
+            <div class="amount-wrap">
+              <input type="number" id="fuelIn" min="0" step="any" inputmode="decimal" placeholder="0">
+              <button class="max-btn" id="fuelMax" type="button">Max</button>
+            </div>
+            <div class="hint" id="fuelInNote">Type an amount and the entries above are worked out from today's price.</div>
+          </div>
         </div>
         <div class="field order">
           <label>Your order</label>
@@ -3575,6 +3583,36 @@ $("count").addEventListener("input", syncCount);
 $("slider").addEventListener("input", () => { $("count").value = $("slider").value; syncCount(); });
 document.querySelectorAll("#quick .pct-btn").forEach(b =>
   b.onclick = () => { $("count").value = b.dataset.q; syncCount(); });
+
+/* ---- entries from a $FUEL amount: type what you want to spend and the count follows ----
+   entries = floor(amount / FUEL per entry), capped at the per-transaction maximum. The two
+   inputs are alternatives: editing the count clears the amount, so they never disagree. */
+function syncFromFuel() {
+  const L = S.L, K = S.K, note = $("fuelInNote");
+  let v; try { v = E.parseEther(($("fuelIn").value || "0").trim()); } catch { v = 0n; }
+  if (v <= 0n) { note.textContent = "Type an amount and the entries above are worked out from today's price."; return; }
+  if (!L.fuelPerEntry || L.fuelPerEntry <= 0n) { note.textContent = "No $FUEL price right now, so the count cannot be worked out."; return; }
+  const hi = K.maxMints || 1000, lo = K.minMints || 1;
+  const n = Number(v / L.fuelPerEntry);
+  if (n < lo) { note.innerHTML = `Not enough for one entry: an entry takes ${fmtTok(L.fuelPerEntry, 0)} ${FUEL_MARK} at today's price.`; return; }
+  const sel = Math.min(hi, n);
+  $("count").value = sel;
+  syncCount();
+  const used = L.fuelPerEntry * BigInt(sel);
+  note.innerHTML = `Selected ${nf(sel)} ${sel === 1 ? "entry" : "entries"}, using ${fmtTok(used, 0)} ${FUEL_MARK}` +
+    (sel < n ? ` — the most one transaction allows is ${nf(hi)}` : "") +
+    (v > used ? `; ${fmtTok(v - used, 0)} ${FUEL_MARK} would be left over` : "") + ".";
+}
+$("fuelIn").addEventListener("input", syncFromFuel);
+$("fuelMax").onclick = () => {
+  if (!S.W || S.W.fuelBal === undefined || S.W.fuelBal === null) { toast("Connect a wallet (or look up an address) to use its $FUEL balance.", "err"); return; }
+  $("fuelIn").value = E.formatEther(S.W.fuelBal);
+  syncFromFuel();
+};
+const clearFuelIn = () => { if ($("fuelIn").value !== "") { $("fuelIn").value = ""; $("fuelInNote").textContent = "Type an amount and the entries above are worked out from today's price."; } };
+$("count").addEventListener("input", clearFuelIn);
+$("slider").addEventListener("input", clearFuelIn);
+document.querySelectorAll("#quick .pct-btn").forEach(b => b.addEventListener("click", clearFuelIn));
 
 
 /* ===================================================================
