@@ -502,6 +502,93 @@
   .toast.err { border-left-color: var(--red); }
   .toast.warn { border-left-color: var(--amber); }
 
+  /* ================================================================
+     Polish pass: one radius, one label style, one primary button, quieter
+     headings. Everything below overrides earlier rules by coming later.
+     ================================================================ */
+  :root { --r: 8px; --r-sm: 6px; --shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.7); }
+
+  /* labels read the same everywhere: small caps, letter-spaced, dim */
+  .cell .k, .tvl-k, label, .stk-stats .k, th, .contract-head, .order-box .line > span:first-child, .lookup label {
+    font-family: var(--sans); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); font-weight: 500;
+  }
+  .order-box .line > span:first-child { letter-spacing: 0.04em; font-size: 11px; }
+  .contract-head { font-size: 11.5px; margin-bottom: 14px; }
+  .cell .k { margin-bottom: 7px; }
+  .cell .v { font-size: 23px; line-height: 1.2; }
+  .cell .note { margin-top: 6px; }
+
+  /* section headings: still the retro face, but small, left-aligned, with a green tick */
+  h2 {
+    font-size: 12px; text-align: left; letter-spacing: 0.06em; margin: 0 0 16px; padding-left: 14px; position: relative; color: var(--neon);
+    text-shadow: 0 0 10px rgba(57,255,20,0.25);
+  }
+  h2::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 4px; height: 14px; background: var(--neon); border-radius: 2px; box-shadow: 0 0 8px rgba(57,255,20,0.6); }
+  section { margin-bottom: 40px; }
+
+  /* surfaces */
+  .panel { border-radius: var(--r); padding: 26px 28px; box-shadow: var(--shadow); border-color: rgba(53,69,59,0.9); }
+  .order-box, .cs-box, .lookup-row input, input[type=text], input[type=number], .daypick, .toast, .assetnote, .pager select { border-radius: var(--r-sm); }
+  .order-box { padding: 8px 18px 12px; }
+  .contracts { margin-top: 28px; padding-top: 24px; }
+
+  /* inputs */
+  input[type=text], input[type=number] { padding: 12px 13px; transition: border-color 120ms ease, box-shadow 120ms ease; }
+  input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(150,201,156,0.14); }
+
+  /* buttons: every button has the radius; the wide one is the page's primary action */
+  button { border-radius: var(--r-sm); font-weight: 500; transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button.wide { background: var(--accent); color: #0b100d; border-color: var(--accent); font-size: 15px; padding: 14px 20px; letter-spacing: 0.01em; }
+  button.wide:hover:not(:disabled) { background: #a9d9ae; border-color: #a9d9ae; }
+  button.wide:disabled { background: transparent; color: var(--accent); opacity: 0.45; }
+  .pct-btn { border-radius: var(--r-sm); }
+  .claim-row button, .cs-actions button { border-radius: var(--r-sm); }
+  .tgbtn, .linkbtn, .cal-btn, .max-btn { border-radius: var(--r-sm); }
+  nav.tabs button { border-radius: 0; font-weight: 500; }
+
+  /* masthead: the wallet controls sit as one row of pills, aligned with the wordmark */
+  .masthead { align-items: center; }
+  .masthead .wallet-bar { padding-top: 0; }
+  .wallet-bar-actions { gap: 12px; }
+  .wallet-bar-actions #walletStatus { padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: rgba(27,37,32,0.6); }
+  .wallet-bar-actions #connect { margin: 0; }
+
+  /* the three key figures sit on one strip of cards */
+  .keystats { gap: 16px; padding-top: 0; border-top: 0; margin-top: 26px; }
+  .kstat { background: var(--panel); border: 1px solid rgba(53,69,59,0.9); border-radius: var(--r); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; }
+  .keystats .price-row { align-items: baseline; gap: 12px; }
+  .keystats .tvl-v, .keystats .price-big { font-size: 31px; }
+  .delta { border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+
+  /* tables */
+  th { padding: 6px 10px 10px; }
+  td { padding: 10px 10px; }
+  tbody tr:hover td { background: rgba(150,201,156,0.05); }
+  tbody tr:last-child td { border-bottom: none; }
+  .tablewrap, #minters, #claimBody { border-radius: var(--r-sm); }
+
+  /* tabs: a touch more presence */
+  nav.tabs { margin-bottom: 30px; }
+  nav.tabs button { padding: 12px 18px; font-size: 14px; }
+
+  /* exceptions to the label style: checkbox labels and the contracts sentence are prose */
+  label.check { text-transform: none; letter-spacing: 0; font-size: 13.5px; font-weight: 400; color: var(--text); }
+  .contracts .contract-head { text-transform: none; letter-spacing: 0.01em; font-size: 12.5px; font-weight: 400; line-height: 1.5; }
+  /* the brand column may shrink so the wallet pills keep their place on the right */
+  .brandline { flex: 1 1 360px; min-width: 0; }
+  .masthead .wallet-bar { flex: 0 0 auto; }
+
+  /* the entry button sits under the order box: half the panel, on the right */
+  #mintBtn { width: calc(50% - 8px); margin-left: auto; display: block; }
+
+  /* small things */
+  .derived { border-bottom-color: rgba(188,199,190,0.55); }
+  .hint { line-height: 1.55; }
+  .sub { max-width: 64ch; }
+  footer { padding-top: 26px; }
+  .footlinks { justify-content: flex-start; }
+
   /* ---- phones: one column, the wallet controls under the brand, tabs on one
      scrolling row, every wide table swipes inside its box ---- */
   @media (max-width: 720px) {
@@ -527,6 +614,7 @@
     .order-box .line.total strong { font-size: 19px; }
     #minters, #claimBody, #stkRecent, #cycTable, .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .claim-row button, .cs-actions .wide { flex: 1 1 100%; }
+    #mintBtn { width: 100%; margin-left: 0; }
     .cs-actions { flex-wrap: wrap; }
     .pager select { min-width: 0; flex: 1 1 auto; }
     .stk-stats { gap: 12px 18px; }
@@ -565,7 +653,7 @@
     <div class="keystats">
       <div class="kstat">
         <span class="tvl-k">Auction</span>
-        <div class="price-row">
+        <div class="price-row" style="margin-top:0">
           <span class="price-big" id="dayBig">day —</span>
           <span class="delta up" id="dayLeft">—</span>
           <span class="busyline" id="busy" hidden><span class="retrobar"><i></i></span></span>
@@ -1279,6 +1367,7 @@
     <div class="footlinks">
       <a class="linkbtn" href="https://t.me/PAMPMORE" target="_blank" rel="noopener"><svg class="tg-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>TELEGRAM</a>
       <a class="linkbtn" href="#whitepaper" id="wpOpen">WHITE PAPER</a>
+      <a class="linkbtn" href="pulse.html" title="The PulseChain version of the protocol">PULSECHAIN</a>
     </div>
     PAMP PROTOCOL runs on Robinhood Chain (4663). Figures marked with a
     <span class="derived">dotted underline</span> are worked out by this page rather than read
@@ -2853,8 +2942,8 @@ function renderCycles() {
     <div class="cell"><span class="k">Entries</span><span class="v">${nf(Number(total))}</span><span class="note">${nf(rows.length)} wallet${rows.length === 1 ? "" : "s"}</span></div>
     <div class="cell"><span class="k">${PAMP_MARK} minted</span><span class="v">${total > 0n ? fmtTok(emission, 0) : "0"}</span><span class="note">${total > 0n ? (emission ? usdNote(emission) || "the day's emission" : "loading…") : "nobody entered, nothing minted"}</span></div>
     <div class="cell"><span class="k">${PAMP_MARK} per entry</span><span class="v">${perEntry !== null ? fmtTok(perEntry, 2) : "—"}</span><span class="note">${perEntry !== null ? usdNote(perEntry) : ""}</span></div>
-    <div class="cell"><span class="k">Value entered <span class="derived" title="The ETH sent plus the $FUEL taken, valued at the pool's $FUEL price at the moment of each entry, shown at today's ETH price.">paid</span></span><span class="v">${fmtPrice(valueEth, "ETH")}</span><span class="note">${S.usd.eth ? "≈ " + fmtUsd(valueEth * S.usd.eth) : ""}</span></div>
-    <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL used</span><span class="v">${fmtTok(fuel, 0)}</span><span class="note">${S.usd.eth ? "worth " + fmtPrice(fuelEthSum, "ETH") + " ≈ " + fmtUsd(fuelEthSum * S.usd.eth) + " when used" : ""}</span></div>
+    <div class="cell"><span class="k">Value entered <span class="derived" title="The ETH sent plus the $FUEL taken, valued at the pool's $FUEL price at the moment of each entry, shown at today's ETH price.">paid</span></span><span class="v">${valueEth > 0 ? fmtPrice(valueEth, "ETH") : "0 ETH"}</span><span class="note">${valueEth > 0 && S.usd.eth ? "≈ " + fmtUsd(valueEth * S.usd.eth) : ""}</span></div>
+    <div class="cell"><span class="k"><span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL used</span><span class="v">${fmtTok(fuel, 0)}</span><span class="note">${fuelEthSum > 0 && S.usd.eth ? "worth " + fmtPrice(fuelEthSum, "ETH") + " ≈ " + fmtUsd(fuelEthSum * S.usd.eth) + " when used" : ""}</span></div>
     <div class="cell"><span class="k">Claimed</span><span class="v">${rows.length ? `${claimedCount} of ${rows.length}` : "—"}</span><span class="note">${claimedAmt > 0n ? fmtTok(claimedAmt, 0) + " $PAMP collected" : "nothing collected yet"}</span></div>`;
 
   if (!rows.length) { box.innerHTML = `<span class="hint">No entries on this day.</span>`; return; }
