@@ -621,6 +621,19 @@
     .footlinks a { flex: 1 1 100%; justify-content: center; }
     footer { font-size: 12px; }
   }
+  /* live countdown on the claim buttons, shown on hover (works on disabled buttons too) */
+  #claimAll[data-timer], #claimStake[data-timer] { position: relative; }
+  #claimAll[data-timer]:hover::after, #claimStake[data-timer]:hover::after {
+    content: attr(data-timer); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px;
+    font-family: var(--sans); font-size: 12px; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums;
+    z-index: 20; pointer-events: none; box-shadow: 0 6px 18px rgba(0,0,0,.4); opacity: 1;
+  }
+  button:disabled[data-timer]:hover::after { opacity: 1; }
+  /* table header rows read centred, numeric columns included */
+  th, th.num, #whitepaper th, #whitepaper th.num, th.sortable { text-align: center; }
+  /* the recent-stakes list is centred throughout, cells included */
+  #stkRecent td, #stkRecent td.num, #stkRecent .num { text-align: center; }
 </style>
 </head>
 <body>
@@ -824,7 +837,7 @@
           </div>
           <div class="hint" id="csHint">Two transactions: the claim, then the stake. Unstaking early costs a penalty, as on the staking tab.</div>
           <div class="cs-actions">
-            <button id="csGo" class="wide">Claim and stake</button>
+            <button id="csGo" class="wide">Claim + Time Lock</button>
             <button id="csCancel" class="sm">Cancel</button>
           </div>
         </div>
@@ -870,7 +883,7 @@
         <div class="field">
           <label for="stkDays">Lock duration (days)</label>
           <div class="days-wrap">
-            <input type="number" id="stkDays" placeholder="90" min="7" max="1000" step="1" value="90" inputmode="numeric">
+            <input type="number" id="stkDays" placeholder="1000" min="7" max="1000" step="1" value="1000" inputmode="numeric">
             <button type="button" class="cal-btn" id="daysCalBtn" aria-expanded="false" aria-label="Pick an unlock date" title="Pick an unlock date">
               <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
                 <rect x="1.5" y="3" width="13" height="11.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
@@ -1050,7 +1063,19 @@
     </div>
   </section>
 
+  <!-- ============================ supply ============================ -->
+
   <!-- ============================ supply ============================ -->
+  <section>
+    <h2>Supply</h2>
+    <div class="panel">
+      <div id="supplyChart" class="hint">Loading…</div>
+      <div class="hint" id="supplyChartNote">
+        Total PAMP in existence, day by day: every closed day adds its emission, split among
+        that day's entrants. A day nobody entered adds nothing. Today's point is still filling.
+      </div>
+    </div>
+  </section>
   </div>
 
   <div class="tab" id="tab-stats">
@@ -1073,18 +1098,6 @@
       <div class="contracts">
         <div class="contract-head">Contracts — every address below is read back from the chain and compared with what this page has hard-coded, and checked for published source.</div>
         <div id="wiring" class="hint">Loading…</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ supply ============================ -->
-  <section>
-    <h2>Supply</h2>
-    <div class="panel">
-      <div id="supplyChart" class="hint">Loading…</div>
-      <div class="hint" id="supplyChartNote">
-        Total PAMP in existence, day by day: every closed day adds its emission, split among
-        that day's entrants. A day nobody entered adds nothing. Today's point is still filling.
       </div>
     </div>
   </section>
@@ -2144,8 +2157,8 @@ const stakingApproved = () => S.W && (S.W.stakeAllow ?? 0n) >= (S.K.maxSupply ||
 function approveRow() {
   if (!stakingDeployed()) return "";
   return stakingApproved()
-    ? `<button id="approveStake" disabled title="The staking contract may already spend your PAMP, so Claim + stake needs no approval or signature.">Staking approved ✓</button>`
-    : `<button id="approveStake" title="Let the staking contract spend your PAMP now, so Claim + stake is one transaction after the claim. Optional: without it, the stake asks for a signature instead.">Approve staking</button>`;
+    ? `<button id="approveStake" disabled title="The staking contract may already spend your PAMP, so Claim + Time Lock needs no approval or signature.">Staking approved ✓</button>`
+    : `<button id="approveStake" title="Let the staking contract spend your PAMP now, so Claim + Time Lock is one transaction after the claim. Optional: without it, the stake asks for a signature instead.">Approve staking</button>`;
 }
 function bindApprove() {
   const b = $("approveStake"); if (!b || b.disabled) return;
@@ -2169,7 +2182,7 @@ function renderClaims() {
       <span class="hint">${est > 0n ? `Your ${nf(W.todayMints)} ${W.todayMints === 1 ? "entry" : "entries"} today would give ${estText} if the day closed now. It becomes claimable at the rollover.` : "Nothing to claim yet. A day becomes claimable once it closes."}</span>
       <div class="claim-row">
         <button id="claimAll" disabled title="Available once today closes.">Claim — ${estText}</button>
-        <button id="claimStake" disabled title="Available once today closes."${stakingDeployed() ? "" : " hidden"}>Claim + stake — ${estText}</button>
+        <button id="claimStake" disabled title="Available once today closes."${stakingDeployed() ? "" : " hidden"}>Claim + Time Lock — ${estText}</button>
         ${approveRow()}
       </div>`;
     bindApprove();
@@ -2181,7 +2194,7 @@ function renderClaims() {
     <tbody>${days.map((d, i) => `<tr><td>${Number(d) <= DAY_OFFSET ? "pre-launch" : dispDay(Number(d))}</td><td class="num">${pamp$(amounts[i], 4)}</td></tr>`).join("")}</tbody></table>
     <div class="claim-row">
       <button id="claimAll">Claim ${days.length} day${days.length > 1 ? "s" : ""} — ${fmtTok(total, 2)} ${K.symbol}</button>
-      <button id="claimStake"${stakingDeployed() ? "" : " hidden"}>Claim + stake — ${fmtTok(total, 2)} ${K.symbol}</button>
+      <button id="claimStake"${stakingDeployed() ? "" : " hidden"}>Claim + Time Lock — ${fmtTok(total, 2)} ${K.symbol}</button>
       ${approveRow()}
     </div>`;
   $("claimAll").onclick = () => doClaim(days.map(Number));
@@ -2513,21 +2526,25 @@ function renderStakes() {
   const px = pampUsd();
   const withUsd = bn => { const u = bn > 0n ? fmtUsd(usdOf(bn, px.price)) : null; return pamp(bn, 2) + (u ? ` <span class="muted">≈ ${u}${px.derived ? "*" : ""}</span>` : ""); };
   const roi = roiPct(pending + claimed - penalty, principal);
+  const showRoi = (S.L.stDist ?? 0n) > 0n || (S.recentStakes && S.recentStakes.events && S.recentStakes.events.some(e => e.kind === "close"));
   const stats = `<div class="stk-stats">
       <div><span class="k">Open</span><span class="v">${open} of ${list.length}</span></div>
       <div><span class="k">Staked</span><span class="v">${withUsd(locked)}</span></div>
-      <div><span class="k">Rewards</span><span class="v">${withUsd(pending)}</span></div>
+      ${showRoi ? `<div><span class="k">Rewards</span><span class="v">${withUsd(pending)}</span></div>` : ""}
       <div><span class="k">Combined</span><span class="v">${withUsd(locked + pending)}</span></div>
-      <div><span class="k">ROI</span><span class="v">${roi == null ? "—" : (roi >= 0 ? "+" : "") + roi.toFixed(2) + "%"}</span></div>
+      ${showRoi ? `<div><span class="k">ROI</span><span class="v">${roi == null ? "—" : (roi >= 0 ? "+" : "") + roi.toFixed(2) + "%"}</span></div>` : ""}
     </div>`;
   if (!rows.length) { box.innerHTML = stats + `<span class="hint">${list.length ? "No open stakes. Tick “Show closed stakes” to see the rest." : "No stakes yet."}</span>`; return; }
 
-  const sort = S.stakeSort, col = STAKE_COLUMNS.find(c => c.key === sort.key) || STAKE_COLUMNS[1];
+  // ROI only means something once penalties have been recycled, i.e. after the first unstake
+  // rewards and ROI only exist once penalties have been recycled, i.e. after the first unstake
+  const cols = STAKE_COLUMNS.filter(c => showRoi || (c.key !== "roi" && c.key !== "rewards"));
+  const sort = S.stakeSort, col = cols.find(c => c.key === sort.key) || cols[1];
   rows.sort((a, b) => { const x = col.sort(a), y = col.sort(b); return (x > y ? 1 : x < y ? -1 : 0) * sort.dir; });
   box.innerHTML = stats + `<div class="tablewrap"><table><thead><tr>` +
-    STAKE_COLUMNS.map(c => `<th class="${c.num ? "num " : ""}${c.nosort ? "" : "sortable"} ${c.key === sort.key ? "sorted" : ""}" data-key="${c.key}">${c.label}${c.key === sort.key ? (sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") +
+    cols.map(c => `<th class="${c.num ? "num " : ""}${c.nosort ? "" : "sortable"} ${c.key === sort.key ? "sorted" : ""}" data-key="${c.key}">${c.label}${c.key === sort.key ? (sort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("") +
     `</tr></thead><tbody>` +
-    rows.map(s => `<tr>${STAKE_COLUMNS.map(c => `<td class="${c.num ? "num" : ""}">${c.cell(s)}</td>`).join("")}</tr>`).join("") +
+    rows.map(s => `<tr>${cols.map(c => `<td class="${c.num ? "num" : ""}">${c.cell(s)}</td>`).join("")}</tr>`).join("") +
     `</tbody></table></div>` +
     (px.derived && px.price ? `<div class="hint">* Dollar figures use today's auction rate (what one PAMP costs to mint right now), not a market price.</div>` : "");
   box.querySelectorAll("th.sortable").forEach(th => th.onclick = () => {
@@ -2746,58 +2763,95 @@ async function scanMints() {
   M.scannedTo = head;
 }
 
-/* ---- recent stakes: everyone's newest stakes, from Staked events plus the contract's own record ---- */
+/* ---- recent activity: the newest stakes opened and closed, from Staked and Unstaked events,
+   each with its live record read back from the contract ---- */
 const STAKED_TOPIC = I.staking.getEvent("Staked").topicHash;
+const UNSTAKED_TOPIC = I.staking.getEvent("Unstaked").topicHash;
 const RECENT_STAKES = 15;
 async function scanStakes() {
   if (!stakingDeployed()) return;
   const head = await rpcRetry(p => p.getBlockNumber());
-  const R = S.recentStakes || (S.recentStakes = { all: [], scannedTo: A.auctionDeployBlock - 1, rows: null });
+  const R = S.recentStakes || (S.recentStakes = { events: [], scannedTo: A.auctionDeployBlock - 1, rows: null });
   if (head > R.scannedTo) {
-    const raw = await collectLogs({ address: A.staking, topics: [STAKED_TOPIC] }, R.scannedTo + 1, head);
+    const raw = await collectLogs({ address: A.staking, topics: [[STAKED_TOPIC, UNSTAKED_TOPIC]] }, R.scannedTo + 1, head);
     for (const lg of raw) {
       let ev; try { ev = I.staking.parseLog({ topics: [...lg.topics], data: lg.data }); } catch { continue; }
       if (!ev) continue;
-      R.all.push({ id: BigInt(ev.args.stakeId), staker: String(ev.args.staker), amount: ev.args.amount, duration: Number(ev.args.duration), block: lg.blockNumber });
+      if (ev.name === "Staked") R.events.push({ kind: "open", id: BigInt(ev.args.stakeId), block: lg.blockNumber, index: lg.index });
+      else if (ev.name === "Unstaked") R.events.push({ kind: "close", id: BigInt(ev.args.stakeId), block: lg.blockNumber, index: lg.index });
     }
     R.scannedTo = head;
   }
-  // The newest few, with their live state read back from the contract (open or closed, dates).
-  const newest = R.all.slice().sort((a, b) => (b.id > a.id ? 1 : b.id < a.id ? -1 : 0)).slice(0, RECENT_STAKES);
+  await loadStakePage();
+}
+/* One page of the activity list: the events for that page, with each stake's live record. */
+async function loadStakePage() {
+  const R = S.recentStakes; if (!R) return;
+  const sorted = R.events.slice().sort((a, b) => b.block - a.block || b.index - a.index);
+  R.pages = Math.max(1, Math.ceil(sorted.length / RECENT_STAKES));
+  R.page = Math.min(Math.max(0, R.page || 0), R.pages - 1);
+  const newest = sorted.slice(R.page * RECENT_STAKES, (R.page + 1) * RECENT_STAKES);
   if (!newest.length) { R.rows = []; return; }
-  const r = await mc(newest.map(x => call(A.staking, I.staking, "getStakeInfo", [x.id])));
-  R.rows = newest.map((x, i) => ({ ...x, info: dec(I.staking, "getStakeInfo", r[i]) }));
+  const K = 2, calls = [];
+  newest.forEach(x => {
+    calls.push(call(A.staking, I.staking, "getStakeInfo", [x.id]));
+    calls.push(call(A.staking, I.staking, "earned", [x.id]));
+  });
+  const r = await mc(calls);
+  R.rows = newest.map((x, i) => ({ ...x, info: dec(I.staking, "getStakeInfo", r[K * i]), earned: dec(I.staking, "earned", r[K * i + 1]) ?? 0n, }));
 }
 function renderRecentStakes() {
   const box = $("stkRecent"), R = S.recentStakes;
   if (!stakingDeployed()) { box.innerHTML = `<span class="hint">Staking goes live with the token.</span>`; return; }
   if (!R || !R.rows) { box.innerHTML = `<span class="hint">Loading…</span>`; return; }
-  if (!R.rows.length) { box.innerHTML = `<span class="hint">No stakes yet. The first one opened shows up here.</span>`; return; }
+  if (!R.rows.length && !R.events.length) { box.innerHTML = `<span class="hint">No stakes yet. The first one opened shows up here.</span>`; return; }
   const me = S.account ? S.account.toLowerCase() : null;
   const px = pampUsd().price;
+  const opened = R.events.filter(e => e.kind === "open").length, closed = R.events.length - opened;
+  // rewards only exist once someone has unstaked (penalties are the only source), so the column waits for that
+  const showRewards = closed > 0;
   const rowsHtml = R.rows.map(x => {
-    const you = me && x.staker.toLowerCase() === me;
     const info = x.info;
-    const start = info ? Number(info.startTime) : null, end = info ? Number(info.endTime) : start ? start + x.duration : null;
-    const days = Math.round(x.duration / 86400);
-    const open = info ? Boolean(info.status) : true;
+    const staker = info ? String(info.staker) : null;
+    const you = me && staker && staker.toLowerCase() === me;
+    const open = info ? Boolean(info.status) : x.kind === "open";
+    const end = info ? Number(info.endTime) : null;
+    const days = info ? Math.round(Number(info.duration) / 86400) : null;
+    const when = info ? (x.kind === "close" ? Number(info.claimTime) : Number(info.startTime)) : null;
     const unlocked = end !== null && nowTs() >= end;
     const state = !open ? '<span class="claimed-no">closed</span>' : unlocked ? '<span class="claimed-yes">unlocked</span>' : `<span class="claimed-yes">locked</span>`;
-    const usd = px && fmtUsd(usdOf(x.amount, px)) ? ` <span class="muted">≈ ${fmtUsd(usdOf(x.amount, px))}</span>` : "";
+    // rewards: what an open stake has earned so far; what a closed one was paid on top of its principal, and what it forfeited
+    let rewards = "—";
+    if (info) {
+      if (open) rewards = fmtTok(x.earned || 0n, 2);
+      else {
+        const got = rewardPortion(info);
+        rewards = fmtTok(got, 2) + (info.penalty > 0n ? ` <span class="muted">−${fmtTok(info.penalty, 2)} penalty</span>` : "");
+      }
+    }
+    const usd = info && px && fmtUsd(usdOf(info.amount, px)) ? ` <span class="muted">≈ ${fmtUsd(usdOf(info.amount, px))}</span>` : "";
     return `<tr class="${you ? "you" : ""}">
-      <td>${linkAddr(x.staker)}${you ? '<span class="you-tag">you</span>' : ""}</td>
-      <td class="num">${fmtTok(x.amount, 2)}${usd}</td>
-      <td class="num">${nf(days)} d</td>
+      <td>${x.kind === "open" ? '<span class="claimed-yes">Staked</span>' : '<span class="muted">Unstaked</span>'} <span class="muted">#${x.id}</span></td>
+      <td>${staker ? linkAddr(staker) + (you ? '<span class="you-tag">you</span>' : "") : "—"}</td>
+      <td class="num">${info ? fmtTok(info.amount, 2) + usd : "—"}</td>
+      <td class="num">${days !== null ? nf(days) + " d" : "—"}</td>
       <td>${end !== null ? new Date(end * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—"}</td>
-      <td>${start !== null ? agoTs(start) : "—"}</td>
+      ${showRewards ? `<td class="num">${rewards}</td>` : ""}
+      <td>${when !== null && when > 0 ? agoTs(when) : "—"}</td>
       <td>${state}</td>
     </tr>`;
   }).join("");
-  const total = R.all.length;
   box.innerHTML = `<div class="tablewrap"><table><thead><tr>
-      <th>Staker</th><th class="num">${PAMP_MARK}</th><th class="num">Lock</th><th>Unlocks</th><th>Opened</th><th>State</th>
+      <th>Event</th><th>Staker</th><th class="num">${PAMP_MARK}</th><th class="num">Lock</th><th>Unlocks</th>${showRewards ? '<th class="num">Rewards</th>' : ""}<th>When</th><th>State</th>
     </tr></thead><tbody>${rowsHtml}</tbody></table></div>
-    <div class="hint">The ${R.rows.length === total ? "" : `newest ${R.rows.length} of `}${nf(total)} stake${total === 1 ? "" : "s"} ever opened, from the staking contract's events.</div>`;
+    ${R.pages > 1 ? `<div class="pager" style="margin:14px 0 6px"><button class="sm" data-stkpage="prev"${R.page === 0 ? " disabled" : ""} title="Newer">‹</button><span class="hint" style="margin:0">Page ${R.page + 1} of ${R.pages}</span><button class="sm" data-stkpage="next"${R.page >= R.pages - 1 ? " disabled" : ""} title="Older">›</button></div>` : ""}
+    <div class="hint">Events ${nf(R.page * RECENT_STAKES + 1)}–${nf(R.page * RECENT_STAKES + R.rows.length)} of ${nf(R.events.length)}, newest first: ${nf(opened)} stake${opened === 1 ? "" : "s"} opened and ${nf(closed)} closed, from the staking contract's events.${showRewards ? " Rewards are PAMP recycled from other stakers' penalties." : ""}</div>`;
+  box.querySelectorAll("button[data-stkpage]").forEach(b => b.onclick = async () => {
+    R.page += b.dataset.stkpage === "next" ? 1 : -1;
+    R.rows = null; renderRecentStakes();
+    try { await loadStakePage(); } catch (e) { console.warn("[stakes] page failed:", e); R.rows = []; }
+    renderRecentStakes();
+  });
 }
 
 /* ---- claims: who has collected which closed day, from Claimed events ---- */
@@ -3492,6 +3546,13 @@ function tick() {
     $("dayLeft").textContent = fmtDur(left) + " left";
     $("tLeft").textContent = fmtDur(left); $("tLeftK").textContent = "Day closes in";
   }
+  // hover countdown on the claim buttons: when the current day closes and its entries become claimable
+  const closeAt = K.genesis + Math.max(day, 1) * K.dayLength, untilClose = Math.max(0, closeAt - now);
+  document.querySelectorAll("#claimAll, #claimStake").forEach(b => {
+    b.removeAttribute("title");
+    b.dataset.timer = day > K.totalDays ? "The auction has ended"
+      : b.disabled ? `Claimable in ${fmtDur(untilClose)}` : `Today's entries become claimable in ${fmtDur(untilClose)}`;
+  });
   // The contract is the source of truth for the day; this clock only fills the gap
   // between polls, so a rollover triggers a fresh read rather than being trusted.
   if (L.day !== undefined && day !== L.day && S.loaded && !S.busy) loadLive().catch(() => {});
