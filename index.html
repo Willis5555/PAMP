@@ -644,6 +644,110 @@
   th, th.num, #whitepaper th, #whitepaper th.num, th.sortable { text-align: center; }
   /* the recent-stakes list is centred throughout, cells included */
   #stkRecent td, #stkRecent td.num, #stkRecent .num { text-align: center; }
+  /* ---- the $FUEL tab, from the PulseChain page ---- */
+  :root { --panel-2: #222e28; --line-soft: #2b3831; }
+  /* ---- loading bars, Windows 95 style ----
+     A sunken grey box that fills with navy blocks, the percentage beside it. Where the length
+     of a wait is known (reading a wallet's $FUEL mint slots) the figure is real; where it is
+     not, it is an estimate that climbs towards 97%, and the data replaces the bar when it lands,
+     as an installer's would. */
+  .w95 { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; max-width: 380px; }
+  .w95-label { font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, sans-serif; font-size: 12px; color: var(--text-dim); }
+  .w95-row { display: flex; align-items: center; gap: 10px; }
+  .w95-bar { display: block; flex: 1 1 auto; height: 20px; padding: 2px; background: #c0c0c0;
+    border: 2px solid; border-color: #808080 #ffffff #ffffff #808080; box-shadow: inset 1px 1px 0 #404040; }
+  .w95-fill { display: block; height: 100%; width: var(--p, 0%); width: round(down, var(--p, 0%), 10px);
+    background: repeating-linear-gradient(90deg, #000080 0 8px, transparent 8px 10px); }
+  .w95-pct { min-width: 36px; text-align: right; font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, sans-serif;
+    font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+  /* ---- $FUEL tab ---- */
+  #fMintBtn { display: block; width: 50%; margin-left: auto; margin-right: 0; }
+  @media (max-width: 720px) { #fMintBtn { width: 100%; } }
+  #fTermQuick, #fCountQuick { margin-top: 10px; }
+  .fuel-mints-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .fuel-mints-head button { margin: 0; }
+  button.sm { padding: 7px 14px; font-size: 13px; }
+  #fClaimAll:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #0b100d; }
+  .fuel-runs th, .fuel-runs td { text-align: center; }
+  .fuel-runs td .muted { font-size: 12px; }
+  .fuel-actions { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .fuel-actions button { margin: 0; padding: 7px 12px; font-size: 13px; white-space: nowrap; }
+  .fuel-actions button.go:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #0b100d; }
+  .fuel-actions { align-items: center; }
+  /* the + is bare text: no box, no fill, just a small glyph that brightens on hover */
+  .fuel-actions .fmore { width: auto; height: auto; padding: 0 2px; font-size: 14px; font-weight: 600; line-height: 1;
+    border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--text-dim); }
+  .fuel-actions .fmore:hover:not(:disabled) { background: none; color: var(--text); }
+  .fuel-actions .fmore:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+  .fuel-actions .fmore[aria-expanded="true"] { color: var(--text); }
+  .fuel-actions .ftip.pop { animation: fpop .18s ease-out; }
+  @keyframes fpop { from { opacity: 0; transform: scale(.8) translateX(8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .fuel-actions .ftip.pop { animation: none; } }
+  .fstate.ready { color: var(--green); } .fstate.late { color: var(--amber); } .fstate.lost { color: var(--red); }
+  /* The greyed-out claim buttons say how long is left on hover. The wrapper carries the hover,
+     because a disabled button does not reliably get pointer events; the tip sits to the left so
+     the table's scroll box never clips it. */
+  .ftip { position: relative; display: inline-block; }
+  .ftip button:disabled { pointer-events: none; opacity: .45; }
+  .ftip[data-timer]:hover::after {
+    content: attr(data-timer); position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px;
+    font-family: var(--sans); font-size: 12px; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums;
+    z-index: 25; pointer-events: none; box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  }
+  #fClaimAllWrap[data-timer]:hover::after { right: auto; left: 50%; top: auto; bottom: calc(100% + 8px); transform: translateX(-50%); }
+  /* the unlock calendar, after the $MORE staking dashboard's: square days held to a readable width */
+  .fcal { max-width: 720px; margin: 4px auto 26px; }
+  .fcal[hidden] { display: none; }
+  .fcal-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  .fcal-nav { display: flex; align-items: center; gap: 10px; }
+  .fcal-nav button, .fcal-bar > button { margin: 0; padding: 5px 12px; font-size: 13px; line-height: 1.2; }
+  .fcal-month { min-width: 300px; text-align: center; font-size: 15px; font-weight: 600; color: var(--text); }
+  .fcal-month .tot { display: block; font-size: 12.5px; font-weight: 500; color: var(--green); margin-top: 2px; }
+  .fcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .fcal-head { text-align: center; font-size: 10.5px; color: var(--text-dim); padding: 2px 0 6px; letter-spacing: .08em; text-transform: uppercase; }
+  .fcal-cell { position: relative; aspect-ratio: 1; padding: 6px; display: flex; flex-direction: column; align-items: center;
+    border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.015); font-variant-numeric: tabular-nums;
+    cursor: pointer; transition: background .12s ease, border-color .12s ease, transform .12s ease; }
+  .fcal-cell .dnum { align-self: flex-start; font-size: 11px; color: var(--text-dim); line-height: 1; }
+  .fcal-cell.blank { border-color: transparent; background: none; cursor: default; }
+  .fcal-cell.today { border-color: var(--accent); }
+  .fcal-cell.today .dnum { color: var(--accent-dim); font-weight: 700; }
+  .fcal-cell.has { background: rgba(150,201,156,.08); }
+  .fcal-cell.has.ready { background: rgba(178,229,186,.10); }
+  .fcal-cell.has.late { background: rgba(224,179,88,.10); }
+  .fcal-cell:hover:not(.blank) { border-color: var(--accent-dim); }
+  .fcal-cell.has:active { transform: scale(.97); }
+  .fcal-cell.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .fcal-count { display: block; margin: auto 0 2px; font-size: 18px; font-weight: 700; line-height: 1; color: var(--accent-dim); }
+  .fcal-cell.ready .fcal-count { color: var(--green); }
+  .fcal-cell.late .fcal-count { color: var(--amber); }
+  .fcal-amt { margin: 0 0 auto; font-size: 10.5px; color: var(--text-dim); white-space: nowrap; }
+  .fcal-detail { margin-top: 14px; }
+  .fcal-detail .day-head { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .fcal-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .fcal-row .amt { color: var(--text); text-align: right; }
+  .fcal-row .amt .usd { color: var(--text-dim); margin-left: 6px; }
+  .fcal-row.total { border-top: 1px solid var(--line); font-weight: 600; color: var(--text); }
+  .fcal-months-head { margin: 18px 0 8px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
+  .fcal-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .fcal-mo { margin: 0; padding: 10px 12px; text-align: left; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+  .fcal-mo:hover { border-color: var(--accent-dim); }
+  .fcal-mo.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .fcal-mo b { display: block; font-size: 13px; color: var(--text); }
+  .fcal-mo .f { display: block; font-size: 13px; color: var(--green); margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .fcal-mo small { display: block; font-size: 11.5px; color: var(--text-dim); margin-top: 1px; }
+  .fcal-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--text-dim); }
+  .fcal-legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .sw-ready { background: var(--green); } .sw-late { background: var(--amber); } .sw-locked { background: var(--accent); }
+  @media (max-width: 720px) {
+    .fcal-grid { gap: 4px; } .fcal-cell { padding: 3px 4px; border-radius: 7px; }
+    .fcal-count { font-size: 14px; } .fcal-amt { font-size: 9px; } .fcal-month { min-width: 0; font-size: 14px; }
+  }
+  @media (max-width: 460px) { .fcal-amt { display: none; } }
+
 </style>
 </head>
 <body>
@@ -704,6 +808,7 @@
     <button role="tab" aria-selected="false" data-tab="more">$MORE</button>
     <button role="tab" aria-selected="false" data-tab="charts">Charts</button>
     <button role="tab" aria-selected="false" data-tab="stats">Stats</button>
+    <button role="tab" aria-selected="false" data-tab="fuel">FUEL</button>
   </nav>
 
   <div class="tab on" id="tab-auction">
@@ -1124,6 +1229,120 @@
       </div>
       <div class="grid" id="cycSummary" style="margin-bottom:22px"></div>
       <div class="tablewrap" id="cycTable"><span class="hint">Loading…</span></div>
+    </div>
+  </section>
+  </div>
+
+  <div class="tab" id="tab-fuel">
+  <section>
+    <h2>MINT <span class="fuel-ico" role="img" aria-hidden="true"></span>$FUEL</h2>
+    <div class="panel">
+      <div class="grid">
+        <div class="cell"><span class="k">Global rank</span><span class="v" id="fRank">—</span><span class="note" id="fActive">—</span></div>
+        <div class="cell"><span class="k">Fee per mint</span><span class="v" id="fFee">—</span><span class="note" id="fGasNote">—</span></div>
+        <div class="cell"><span class="k">Longest term</span><span class="v" id="fMaxTerm">—</span><span class="note">grows as the rank grows</span></div>
+        <div class="cell"><span class="k">Your open mints</span><span class="v" id="fMine">—</span><span class="note" id="fBal">—</span></div>
+      </div>
+
+      <div class="field-row" style="margin-top:24px">
+        <div class="field">
+          <label for="fCount">Mints (1–100 per transaction)</label>
+          <input type="number" id="fCount" min="1" max="100" step="1" value="100" inputmode="numeric">
+          <div class="pct-row" id="fCountQuick">
+            <button class="pct-btn" data-n="1">1</button>
+            <button class="pct-btn" data-n="10">10</button>
+            <button class="pct-btn" data-n="25">25</button>
+            <button class="pct-btn" data-n="50">50</button>
+            <button class="pct-btn" data-n="100">100</button>
+          </div>
+
+          <label for="fTerm" style="margin-top:20px">Term (days)</label>
+          <div class="days-wrap">
+            <input type="number" id="fTerm" min="7" max="312" step="1" value="7" inputmode="numeric">
+            <button type="button" class="cal-btn" id="fCalBtn" aria-expanded="false" aria-label="Pick the day the mints unlock" title="Pick the day the mints unlock">
+              <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false">
+                <rect x="1.5" y="3" width="13" height="11.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M1.5 6.5h13" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M5 1.5v3M11 1.5v3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <div class="daypick" id="fCal" hidden>
+              <div class="daypick-head">
+                <button type="button" id="fPrev" aria-label="Previous month">&#8592;</button>
+                <span id="fMonth">—</span>
+                <button type="button" id="fNext" aria-label="Next month">&#8594;</button>
+              </div>
+              <div class="daypick-grid" id="fGrid"></div>
+              <div class="daypick-foot" id="fFoot"></div>
+            </div>
+          </div>
+          <div class="pct-row" id="fTermQuick">
+            <button class="pct-btn" data-days="7">7</button>
+            <button class="pct-btn" data-days="30">30</button>
+            <button class="pct-btn" data-days="90">90</button>
+            <button class="pct-btn" data-days="180">180</button>
+            <button class="pct-btn" data-days="max">Max</button>
+          </div>
+          <div class="hint" id="fUnlock">—</div>
+
+          <div class="hint" style="margin-top:20px">The fee per mint is set by the $FUEL token: its gas allowance for a mint at its own minimum gas price, which Robinhood Chain's gas price sits far below, so the fee stays the same however busy the chain is.</div>
+        </div>
+
+        <div class="field order">
+          <label>Your order</label>
+          <div class="order-box">
+            <div class="line"><span>Mint fee</span><strong id="fOrderFee">—</strong></div>
+            <div class="line sub" id="fOrderFeeNote">—</div>
+            <div class="line"><span>Network gas <span class="derived" title="About 230,000 gas per mint at the network's gas price. The wallet shows the exact figure before you confirm.">estimate</span></span><strong id="fOrderGas">—</strong></div>
+            <div class="line"><span>Unlocks</span><strong id="fOrderUnlock">—</strong></div>
+            <div class="line total"><span>Projected $FUEL <span class="derived" title="Each mint's reward depends on how far the global rank has climbed by the time you claim, which nobody knows yet. The low end assumes it barely moves; the high end assumes it doubles from today.">range</span></span><strong id="fOrderReward">—</strong></div>
+          </div>
+          <div class="hint" id="fOrderHint" style="margin-top:10px"></div>
+        </div>
+      </div>
+
+      <button id="fMintBtn" class="wide" disabled>Connect wallet</button>
+      <div class="hint">
+        Mints go through the $FUEL batch minter: each is its own small contract, opened for you in one transaction.
+        You send a little over the fee and the minter refunds the rest. Would rather buy it? <a href="https://dexscreener.com/robinhood/0xff40c99525ffa6b6cf79ecbe370ef7c887d68f69" target="_blank" rel="noopener">Buy $FUEL on DexScreener →</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>YOUR $FUEL MINTS</h2>
+    <div class="panel">
+      <div class="fuel-mints-head">
+        <div class="hint" id="fMintsSummary" style="margin:0">—</div>
+        <span class="ftip" id="fClaimAllWrap"><button id="fClaimAll" class="sm" disabled>Claim all ready</button></span>
+      </div>
+      <!-- unlock calendar: what comes due on each day, and what each month adds up to -->
+      <div class="fcal" id="fcWrap" hidden>
+        <div class="fcal-bar">
+          <div class="fcal-nav">
+            <button type="button" id="fcPrev" aria-label="Previous month">&#8592;</button>
+            <span class="fcal-month" id="fcMonth">—</span>
+            <button type="button" id="fcNext" aria-label="Next month">&#8594;</button>
+          </div>
+          <button type="button" id="fcToday" class="sm">Today</button>
+        </div>
+        <div class="fcal-grid" id="fcGrid"></div>
+        <div class="fcal-detail" id="fcDetail"></div>
+        <div class="fcal-months-head">Each month</div>
+        <div class="fcal-months" id="fcMonths"></div>
+        <div class="fcal-legend">
+          <span><i class="sw sw-ready"></i>Ready to claim</span>
+          <span><i class="sw sw-late"></i>Late, reward being cut</span>
+          <span><i class="sw sw-locked"></i>Still locked</span>
+          <span class="muted">Values are projected at today's rank and $FUEL price.</span>
+        </div>
+      </div>
+      <div id="fMints"><span class="hint">Connect a wallet, or look up an address, to see its mints.</span></div>
+      <div class="hint" style="margin-top:14px">
+        A mint can be claimed once its term is over. Claim within a day of that for the full reward: after that the contract cuts it
+        1%, 3%, 8%, 17%, 35% and 72% on each following day, and 99% from the seventh day on. Claiming costs a quarter of the mint fee. "Claim + remint" claims and opens the same slots again for the term set above, in one transaction.
+        Hover a greyed-out button to see how long is left.
+      </div>
     </div>
   </section>
   </div>
@@ -1786,6 +2005,39 @@ function usdOf(wei, price) {
   if (wei === null || wei === undefined || !price) return null;
   return Number(E.formatEther(wei)) * price;
 }
+/* An inline loading bar with what is loading: sliding while the wait is unknown, filling to
+   `pct` when it is known. */
+function loadingHTML(label, pct = null) {
+  const det = pct !== null && isFinite(pct);
+  const p = det ? Math.max(0, Math.min(100, pct)) : w95Estimate(label);
+  return w95HTML(label + "…", p, det ? "" : label);
+}
+/* spans throughout, so the same bar can sit in a card's inline row as well as in a block */
+function w95HTML(text, p, est = "") {
+  return `<span class="w95"${est ? ` data-est="${est.replace(/"/g, "&quot;")}"` : ""} role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.floor(p)}">` +
+    (text ? `<span class="w95-label">${text}</span>` : "") +
+    `<span class="w95-row"><span class="w95-bar"><span class="w95-fill" style="--p:${p.toFixed(1)}%"></span></span><span class="w95-pct">${Math.floor(p)}%</span></span></span>`;
+}
+/* An estimated bar keeps its clock by label, so a section that redraws its placeholder while
+   still waiting does not jump back to 0%. The clock is dropped once that bar has gone. */
+const W95_T0 = new Map();
+function w95Estimate(key) {
+  if (!W95_T0.has(key)) W95_T0.set(key, performance.now());
+  const t = (performance.now() - W95_T0.get(key)) / 1000;
+  return Math.min(97, 97 * (1 - Math.exp(-t / 2.5)));
+}
+setInterval(() => {
+  const live = new Set();
+  document.querySelectorAll(".w95[data-est]").forEach(el => {
+    const key = el.dataset.est; live.add(key);
+    const p = w95Estimate(key);
+    el.querySelector(".w95-fill").style.setProperty("--p", p.toFixed(1) + "%");
+    el.querySelector(".w95-pct").textContent = Math.floor(p) + "%";
+    el.setAttribute("aria-valuenow", Math.floor(p));
+  });
+  for (const k of [...W95_T0.keys()]) if (!live.has(k)) W95_T0.delete(k);
+}, 150);
+
 const linkAddr = a => `<a href="${CHAIN.explorer}/address/${a}" target="_blank" rel="noopener">${short(a)}</a>`;
 const setBar = (el, pct) => { el.firstElementChild.style.backgroundSize = Math.max(0, Math.min(100, pct)) + "% 100%"; };
 
@@ -2397,21 +2649,23 @@ const dpDaysBetween = (from, to) => Math.round((dpMidnight(to) - dpMidnight(from
    popover's prev/month/next/grid/foot. onPick runs after a date fills the field. */
 function makeDaypick(ids, onPick) {
   const el = k => $(ids[k]);
+  // the allowed range: the staking limits unless the caller passes its own (the $FUEL term does)
+  const lo = () => ids.min ? ids.min() : STK.MIN_DAYS, hi = () => ids.max ? ids.max() : STK.MAX_DAYS;
   const days = () => { const d = parseInt(el("input").value || "0", 10); return isFinite(d) ? d : 0; };
   let view = null;
   function open() {
     const d = days();
-    const base = d >= STK.MIN_DAYS && d <= STK.MAX_DAYS ? new Date(Date.now() + d * 86400000) : new Date(Date.now() + STK.MIN_DAYS * 86400000);
+    const base = d >= lo() && d <= hi() ? new Date(Date.now() + d * 86400000) : new Date(Date.now() + lo() * 86400000);
     view = new Date(base.getFullYear(), base.getMonth(), 1);
     el("pop").hidden = false; el("btn").setAttribute("aria-expanded", "true");
     render();
   }
   function close() { el("pop").hidden = true; el("btn").setAttribute("aria-expanded", "false"); }
   function render() {
-    const first = dpMidnight(new Date(Date.now() + STK.MIN_DAYS * 86400000));
-    const last = dpMidnight(new Date(Date.now() + STK.MAX_DAYS * 86400000));
+    const first = dpMidnight(new Date(Date.now() + lo() * 86400000));
+    const last = dpMidnight(new Date(Date.now() + hi() * 86400000));
     const d0 = days();
-    const chosen = d0 >= STK.MIN_DAYS && d0 <= STK.MAX_DAYS ? dpMidnight(new Date(Date.now() + d0 * 86400000)) : null;
+    const chosen = d0 >= lo() && d0 <= hi() ? dpMidnight(new Date(Date.now() + d0 * 86400000)) : null;
     el("month").textContent = view.toLocaleDateString(undefined, { month: "long", year: "numeric" });
     el("prev").disabled = new Date(view.getFullYear(), view.getMonth(), 0) < first;
     el("next").disabled = new Date(view.getFullYear(), view.getMonth() + 1, 1) > last;
@@ -2425,7 +2679,7 @@ function makeDaypick(ids, onPick) {
       html += `<button type="button" data-days="${dpDaysBetween(new Date(), d)}" class="${isSel ? "sel" : ""}"${ok ? "" : " disabled"} aria-label="${d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}">${day}</button>`;
     }
     el("grid").innerHTML = html;
-    el("foot").textContent = d0 >= STK.MIN_DAYS ? `${nf(d0)} day${d0 === 1 ? "" : "s"} from today` : `${STK.MIN_DAYS} to ${nf(STK.MAX_DAYS)} days from today`;
+    el("foot").textContent = d0 >= lo() ? `${nf(d0)} day${d0 === 1 ? "" : "s"} from today` : `${lo()} to ${nf(hi())} days from today`;
   }
   const btn = el("btn"), pop = el("pop");
   btn.addEventListener("click", e => { e.stopPropagation(); pop.hidden ? open() : close(); });
@@ -3503,7 +3757,7 @@ wpDraw("chartCumulative", WP_CUMULATIVE, 0, 100000000);
 
 })();
 /* ---- tabs: one group of sections visible at a time; the hash remembers which ---- */
-const TABS = ["auction", "staking", "more", "charts", "stats", "whitepaper"];
+const TABS = ["auction", "staking", "more", "charts", "stats", "fuel", "whitepaper"];
 function selectTab(name, { scroll = false } = {}) {
   if (!TABS.includes(name)) name = "auction";
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
@@ -3825,6 +4079,499 @@ $("flushBtn").onclick = () => {
   const c = new E.Contract(A.burner, ABI.burner, S.signer);
   withTx($("flushBtn"), "Flush", () => c.flush());
 };
+
+/* ===================================================================
+   $FUEL: mint through the live FUEL batch minter and claim matured
+   mints. The minter opens one small proxy contract per mint for each
+   wallet, numbered 0, 1, 2… (proxiesOf = how many); a claim names a
+   run of those numbers. The token itself is A.fuel.
+   =================================================================== */
+const FUEL = {
+  minter: "0xEaB771dB3883dC05DbEA1915F7e81910869bbc18",
+  BUFFER_BPS: 1000n,        // send 10% over the quoted fee; the minter refunds whatever the block does not charge
+  GAS_PER_MINT: 230000n,    // for the cost estimate only (~210k measured per mint in a batch)
+  GAS_CAP: 32000000n,       // stay under Robinhood Chain's 32M gas per transaction
+  base: 0n,
+  K: { maxBatch: 100, minDays: 7, maxDays: 325, window: 7, maxPen: 99, amp: null, eaar: null, floor: null },
+  rank: null, active: null, bal: null, count: 0,
+  proxies: { owner: null, list: [] },   // proxy address by index, per wallet; they never change, so read once
+  mints: [], runs: [], solo: null, loadedFor: undefined, loading: false, busy: false, q: null,
+  claimOpen: new Set(), justOpened: null   // rows whose plain Claim has been popped open with "+"
+};
+const FABI = {
+  token: [
+    "function mintFee(uint256 gasPrice) view returns (uint256)", "function claimFee(uint256 gasPrice) view returns (uint256)",
+    "function getCurrentMaxTerm() view returns (uint256)", "function MIN_TERM() view returns (uint256)",
+    "function globalRank() view returns (uint256)", "function activeMinters() view returns (uint256)",
+    "function getCurrentAMP() view returns (uint256)", "function getCurrentEAAR() view returns (uint256)",
+    "function WITHDRAWAL_WINDOW_DAYS() view returns (uint256)", "function MAX_PENALTY_PCT() view returns (uint256)", "function minGasPrice() view returns (uint256)",
+    "function userMints(address) view returns (address user, uint256 term, uint256 maturityTs, uint256 rank, uint256 amplifier, uint256 eaaRate)",
+    "function balanceOf(address) view returns (uint256)",
+    "function claimMintReward() payable"
+  ],
+  minter: [
+    "function MAX_BATCH() view returns (uint256)", "function proxiesOf(address) view returns (uint256)",
+    "function proxyAddress(address owner, uint256 index) view returns (address)",
+    "function batchFee(uint256 count, uint256 gasPrice) view returns (uint256)",
+    "function batchClaimFee(uint256 count, uint256 gasPrice) view returns (uint256)",
+    "function batchClaimRank(uint256 start, uint256 count, uint256 term) payable",
+    "function batchClaimReward(uint256 start, uint256 count) payable",
+    "function batchClaimAndRemint(uint256 start, uint256 count, uint256 term) payable"
+  ]
+};
+const FI = { token: new E.Interface(FABI.token), minter: new E.Interface(FABI.minter) };
+
+/* public RPC caps an eth_call's gas, so long lists go through the multicall in slices */
+async function fuelMc(calls, size = 80, onStep = null) {
+  const out = [];
+  for (let i = 0; i < calls.length; i += size) { out.push(...await mc(calls.slice(i, i + size))); if (onStep) onStep(Math.min(size, calls.length - i)); }
+  return out;
+}
+/* "6d 04:12:09" for waits of days, "04:12:09" under a day */
+function fuelDur(s) {
+  s = Math.max(0, Math.floor(s)); const d = Math.floor(s / 86400);
+  return d > 0 ? `${d}d ${fmtDur(s % 86400)}` : fmtDur(s);
+}
+/* "3d 4h", "5h 12m", "9m": the table's coarse wait */
+function fuelWhen(s) {
+  s = Math.max(0, Math.floor(s)); const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${Math.max(m, 1)}m`;
+}
+const fuelDate = ts => new Date(Number(ts) * 1000).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+/* the token's late-claim cut, in %: MIN(2^(daysLate+3)/window - 1, 99) */
+function fuelPenalty(secsLate) {
+  if (secsLate < 0) return 0;
+  const days = Math.floor(secsLate / 86400), w = FUEL.K.window;
+  if (days > w - 1) return FUEL.K.maxPen;
+  return Math.min(Math.floor(2 ** (days + 3) / w) - 1, FUEL.K.maxPen);
+}
+/* whole $FUEL before any cut, as the token's getGrossReward:
+   log2(rank climb, at least 2) × amplifier × term × (1000 + EAA rate) / 1000 */
+function fuelGross(m, rank) {
+  const climb = rank !== null && rank > m.rank ? Number(rank - m.rank) : 2;
+  return Math.log2(Math.max(climb, 2)) * Number(m.amplifier) * Number(m.term) * (1000 + Number(m.eaaRate)) / 1000;
+}
+/* fees are quoted, and transactions capped, at twice the base fee: room for it to rise before the
+   transaction lands. While that is under the token's minimum gas price the fee is the floor's. */
+const fuelGasPrice = () => FUEL.base * 2n;
+const fuelEth = w => fmtEth(w, 6);
+async function fuelLiveGas() {
+  const blk = await rpcRetry(p => p.getBlock("latest"));
+  if (blk?.baseFeePerGas) FUEL.base = blk.baseFeePerGas;
+  const gp = fuelGasPrice();
+  return { gp, prio: gp > FUEL.base ? gp - FUEL.base : gp / 10n };
+}
+const fuelBuffer = fee => fee + (fee * FUEL.BUFFER_BPS) / 10000n;
+const fuelLimit = est => { const g = (est * 125n) / 100n; return g > FUEL.GAS_CAP ? FUEL.GAS_CAP : g; };
+const fuelCount = () => Math.max(1, Math.min(FUEL.K.maxBatch, parseInt($("fCount").value, 10) || 1));
+const fuelTerm = () => Math.max(FUEL.K.minDays, Math.min(FUEL.K.maxDays, parseInt($("fTerm").value, 10) || FUEL.K.minDays));
+const fuelCan = () => !!S.signer && !S.viewOnly;
+
+/* fg: the reader is waiting on this one (tab opened, wallet changed, after a transaction), so the
+   top bar runs and a first read of a wallet shows its progress; background re-reads stay quiet */
+async function fuelRefresh(fg = false) {
+  if (FUEL.loading) return;
+  FUEL.loading = true;
+  const who = S.account || null, first = !!who && FUEL.loadedFor !== who;
+  if (first) { $("fMints").innerHTML = loadingHTML("Loading your mints"); FUEL.claimOpen.clear(); }
+  try {
+    const names = ["globalRank", "activeMinters", "getCurrentMaxTerm", "MIN_TERM", "getCurrentAMP", "getCurrentEAAR", "WITHDRAWAL_WINDOW_DAYS", "MAX_PENALTY_PCT", "minGasPrice"];
+    const calls = [...names.map(n => call(A.fuel, FI.token, n)), call(FUEL.minter, FI.minter, "MAX_BATCH")];
+    if (who) calls.push(call(FUEL.minter, FI.minter, "proxiesOf", [who]), call(A.fuel, FI.token, "userMints", [who]), call(A.fuel, FI.token, "balanceOf", [who]));
+    const [r, blk] = await Promise.all([mc(calls), rpcRetry(p => p.getBlock("latest"))]);
+    const g = names.map((n, i) => dec(FI.token, n, r[i]));
+    FUEL.rank = g[0]; FUEL.active = g[1];
+    if (g[2] !== null) FUEL.K.maxDays = Math.floor(Number(g[2]) / 86400);
+    if (g[3] !== null) FUEL.K.minDays = Math.ceil(Number(g[3]) / 86400);
+    FUEL.K.amp = g[4]; FUEL.K.eaar = g[5];
+    if (g[6] !== null) FUEL.K.window = Number(g[6]);
+    if (g[7] !== null) FUEL.K.maxPen = Number(g[7]);
+    if (g[8] !== null) FUEL.K.floor = g[8];
+    const mb = dec(FI.minter, "MAX_BATCH", r[9]); if (mb !== null) FUEL.K.maxBatch = Number(mb);
+    if (blk?.baseFeePerGas) FUEL.base = blk.baseFeePerGas;
+    if (who) {
+      const count = Number(dec(FI.minter, "proxiesOf", r[10]) ?? 0n);
+      const solo = dec(FI.token, "userMints", r[11]);
+      // a new wallet with many slots takes a while to read: a bar that fills as the slots come in
+      const have0 = FUEL.proxies.owner === who ? FUEL.proxies.list.length : 0;
+      const work = Math.max(0, count - have0) + count;
+      let done = 0;
+      // carry on from where the estimated "Loading your mints" bar had got to, so it never runs backwards
+      const base = first ? w95Estimate("Loading your mints") : 0;
+      const step = first && count > 0 ? k => { done += k; $("fMints").innerHTML = loadingHTML(`Reading ${nf(count)} mint slot${count === 1 ? "" : "s"}`, base + (100 - base) * (done / work)); } : null;
+      if (step) step(0);
+      FUEL.bal = dec(FI.token, "balanceOf", r[12]);
+      if (FUEL.proxies.owner !== who) FUEL.proxies = { owner: who, list: [] };
+      const have = FUEL.proxies.list.length;
+      if (count > have) {
+        const idx = Array.from({ length: count - have }, (_, k) => have + k);
+        const got = await fuelMc(idx.map(i => call(FUEL.minter, FI.minter, "proxyAddress", [who, i])), 80, step);
+        const addrs = got.map(x => dec(FI.minter, "proxyAddress", x));
+        if (addrs.every(Boolean)) FUEL.proxies.list.push(...addrs);   // keep the cache gap-free; a failed read retries next time
+      }
+      const list = FUEL.proxies.list.slice(0, count);
+      const raw = list.length ? await fuelMc(list.map(p => call(A.fuel, FI.token, "userMints", [p])), 80, step) : [];
+      FUEL.mints = [];
+      raw.forEach((x, i) => {
+        const m = dec(FI.token, "userMints", x);
+        if (m && m[0] && m[0] !== ZERO) FUEL.mints.push({ index: i, term: m[1], maturityTs: Number(m[2]), rank: m[3], amplifier: m[4], eaaRate: m[5] });
+      });
+      FUEL.solo = solo && solo[0] && solo[0] !== ZERO ? { index: null, term: solo[1], maturityTs: Number(solo[2]), rank: solo[3], amplifier: solo[4], eaaRate: solo[5] } : null;
+      FUEL.count = count;
+      if (S.signer) { try { S.ethBal = await rpcRetry(p => p.getBalance(who)); } catch {} }
+    } else { FUEL.mints = []; FUEL.solo = null; FUEL.bal = null; FUEL.count = 0; }
+    FUEL.loadedFor = who;
+    fuelBuildRuns(); fuelRender(); await fuelQuote();
+  } catch (e) {
+    console.warn("[fuel]", e);
+    if (first) $("fMints").innerHTML = `<span class="hint">Could not read the mints right now; retrying shortly.</span>`;
+  }
+  finally { FUEL.loading = false; }
+}
+
+/* consecutive slots opened together (same term, same unlock time) are one claim, up to a batch */
+function fuelBuildRuns() {
+  const runs = [];
+  for (const m of FUEL.mints) {
+    const last = runs[runs.length - 1];
+    if (last && last.start + last.count === m.index && last.maturityTs === m.maturityTs && last.term === m.term && last.count < FUEL.K.maxBatch) { last.count++; last.items.push(m); }
+    else runs.push({ start: m.index, count: 1, term: m.term, maturityTs: m.maturityTs, items: [m], solo: false });
+  }
+  FUEL.runs = runs;
+}
+/* a run's ranks: each mint takes the next global rank, so a batch is a range ("12,301–12,400") */
+function fuelRankText(r) {
+  const ranks = r.items.map(m => Number(m.rank)), lo = Math.min(...ranks), hi = Math.max(...ranks);
+  return lo === hi ? nf(lo) : `${nf(lo)}–${nf(hi)}`;
+}
+function fuelRows() {
+  const rows = [...FUEL.runs];
+  if (FUEL.solo) rows.push({ start: null, count: 1, term: FUEL.solo.term, maturityTs: FUEL.solo.maturityTs, items: [FUEL.solo], solo: true });
+  return rows.sort((a, b) => a.maturityTs - b.maturityTs || (a.start ?? -1) - (b.start ?? -1));
+}
+
+function fuelRender() {
+  const now = nowTs(), K = FUEL.K, can = fuelCan();
+  $("fRank").textContent = FUEL.rank !== null ? nf(Number(FUEL.rank)) : "—";
+  $("fActive").textContent = FUEL.active !== null ? `${nf(Number(FUEL.active))} mints open` : "—";
+  $("fMaxTerm").textContent = `${K.maxDays} days`;
+  $("fTerm").min = K.minDays; $("fTerm").max = K.maxDays; $("fCount").max = K.maxBatch;
+  const rows = fuelRows(), open = rows.reduce((s, r) => s + r.count, 0);
+  $("fMine").textContent = S.account ? nf(open) : "—";
+  $("fBal").textContent = S.account ? `${fmtTok(FUEL.bal ?? 0n, 0)} $FUEL in the wallet` : "connect a wallet";
+  const box = $("fMints");
+  if (!S.account) box.innerHTML = `<span class="hint">Connect a wallet, or look up an address, to see its mints.</span>`;
+  // still reading this wallet (a render from a read that started before it was chosen must not say "none")
+  else if (FUEL.loadedFor !== S.account) { if (!box.querySelector(".w95")) box.innerHTML = loadingHTML("Loading your mints"); }
+  else if (!rows.length) box.innerHTML = `<span class="hint">No open mints on this address.</span>`;
+  else {
+    box.innerHTML = `<div class="tablewrap"><table class="fuel-runs"><thead><tr><th>Mints</th><th>Rank</th><th>Term</th><th>Unlocks</th><th>Status</th><th>Projected $FUEL</th><th></th></tr></thead><tbody>` +
+      rows.map(r => {
+        const left = r.maturityTs - now, ready = left < 0, pen = ready ? fuelPenalty(-left) : 0;
+        const gross = r.items.reduce((s, m) => s + fuelGross(m, FUEL.rank), 0), net = gross * (100 - pen) / 100;
+        const label = r.solo ? "solo" : r.count > 1 ? `#${r.start}–${r.start + r.count - 1} <span class="muted">(${r.count})</span>` : `#${r.start}`;
+        const state = !ready ? `<span class="muted">in ${fuelWhen(left)}</span>`
+          : pen === 0 ? `<span class="fstate ready">Ready</span>`
+          : `<span class="fstate ${pen >= K.maxPen ? "lost" : "late"}">Late · −${pen}%</span>`;
+        const key = r.solo ? "solo" : `${r.start}:${r.count}`, dis = can && ready ? "" : " disabled";
+        // Claim + remint is the row's action; "+" pops a plain Claim in beside it. A solo mint
+        // cannot be reopened through the batch minter, so it keeps a lone Claim.
+        const open = FUEL.claimOpen.has(key), pop = open && FUEL.justOpened === key ? " pop" : "";
+        const act = r.solo
+          ? `<span class="fuel-actions"><span class="ftip" data-mature="${r.maturityTs}"><button class="go" data-fclaim="${key}"${dis}>Claim</button></span></span>`
+          : `<span class="fuel-actions">` +
+            (open ? `<span class="ftip${pop}" data-mature="${r.maturityTs}"><button data-fclaim="${key}"${dis}>Claim</button></span>` : "") +
+            `<span class="ftip" data-mature="${r.maturityTs}"><button class="go" data-fremint="${key}"${dis}>Claim + remint</button></span>` +
+            `<button type="button" class="fmore" data-fmore="${key}" aria-expanded="${open}" title="${open ? "Hide the plain Claim" : "Claim without reminting"}">${open ? "−" : "+"}</button>` +
+            `</span>`;
+        return `<tr><td>${label}</td><td>${fuelRankText(r)}</td><td>${Number(r.term)}d</td><td>${fuelDate(r.maturityTs)}</td><td>${state}</td>` +
+          `<td>≈ ${nf(net, 0)}${pen ? ` <span class="muted">of ${nf(gross, 0)}</span>` : ""}</td><td>${act}</td></tr>`;
+      }).join("") + `</tbody></table></div>`;
+  }
+  const ready = rows.filter(r => r.maturityTs < now), readyN = ready.reduce((s, r) => s + r.count, 0);
+  const next = rows.find(r => r.maturityTs >= now);
+  $("fMintsSummary").textContent = S.account
+    ? `${nf(open)} open · ${nf(readyN)} ready to claim${next ? ` · next unlocks ${fuelDate(next.maturityTs)}` : ""}`
+    : "—";
+  const all = $("fClaimAll");
+  all.disabled = !can || !ready.length || FUEL.busy;
+  all.textContent = ready.length ? `Claim all ready (${nf(readyN)})` : "Claim all ready";
+  fcRender();
+  fuelTimers();
+}
+
+/* ---- the unlock calendar ----
+   Every run of mints lands on the day it unlocks; a day shows how many and what they come to,
+   the header what the month on screen adds up to, and the strip below every month at once.
+   Values are projections at today's rank, net of any late cut already running, priced at
+   today's $FUEL price. */
+const FCAL = { cursor: null, sel: null };
+const fcKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const fcMonthKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+/* 24.0M, 1.07B, 530K: a day cell is small */
+function fcShort(n) {
+  const a = Math.abs(n);
+  return a >= 1e9 ? (n / 1e9).toFixed(a >= 1e10 ? 1 : 2) + "B" : a >= 1e6 ? (n / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M"
+    : a >= 1e3 ? (n / 1e3).toFixed(a >= 1e4 ? 0 : 1) + "K" : nf(n, 0);
+}
+const fcUsd = fuel => { const px = S.usd.fuel; return px ? fmtUsd(fuel * px) : null; };
+function fcItems() {
+  const now = nowTs();
+  return fuelRows().map(r => {
+    const left = r.maturityTs - now, ready = left < 0, pen = ready ? fuelPenalty(-left) : 0;
+    const gross = r.items.reduce((s, m) => s + fuelGross(m, FUEL.rank), 0);
+    return { r, when: new Date(r.maturityTs * 1000), count: r.count, fuel: gross * (100 - pen) / 100, pen,
+             state: !ready ? "locked" : pen === 0 ? "ready" : "late" };
+  });
+}
+function fcRender() {
+  const wrap = $("fcWrap");
+  const items = S.account ? fcItems() : [];
+  wrap.hidden = !items.length;
+  if (!items.length) return;
+  if (!FCAL.cursor) {
+    // open on this month if something unlocks in it, otherwise on the month of the next unlock
+    const t = new Date(), here = new Date(t.getFullYear(), t.getMonth(), 1);
+    const next = items.filter(it => it.when >= here).sort((a, b) => a.when - b.when)[0];
+    FCAL.cursor = next ? new Date(next.when.getFullYear(), next.when.getMonth(), 1) : here;
+    if (next) FCAL.sel = fcKey(next.when);
+  }
+  const y = FCAL.cursor.getFullYear(), mo = FCAL.cursor.getMonth(), curKey = fcMonthKey(FCAL.cursor);
+
+  // what the month on screen adds up to
+  const inMonth = items.filter(it => fcMonthKey(it.when) === curKey);
+  const monthFuel = inMonth.reduce((s, it) => s + it.fuel, 0), monthN = inMonth.reduce((s, it) => s + it.count, 0);
+  const label = FCAL.cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const mUsd = fcUsd(monthFuel);
+  $("fcMonth").innerHTML = monthN
+    ? `${label}<span class="tot">${nf(monthN)} mint${monthN === 1 ? "" : "s"} · ≈ ${fcShort(monthFuel)} $FUEL${mUsd ? ` · ${mUsd}` : ""}</span>`
+    : `${label}<span class="tot" style="color:var(--text-dim)">nothing unlocks this month</span>`;
+
+  // the days
+  const byDay = new Map();
+  for (const it of inMonth) { const k = fcKey(it.when); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(it); }
+  const todayKey = fcKey(new Date()), lead = new Date(y, mo, 1).getDay(), days = new Date(y, mo + 1, 0).getDate();
+  let html = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(w => `<div class="fcal-head">${w}</div>`).join("");
+  for (let i = 0; i < lead; i++) html += `<div class="fcal-cell blank"></div>`;
+  for (let day = 1; day <= days; day++) {
+    const d = new Date(y, mo, day), k = fcKey(d), list = byDay.get(k) || [];
+    const n = list.reduce((s, it) => s + it.count, 0), fuel = list.reduce((s, it) => s + it.fuel, 0);
+    // a day's tone follows its most urgent run
+    const tone = list.some(it => it.state === "late") ? "late" : list.some(it => it.state === "ready") ? "ready" : "";
+    const cls = ["fcal-cell", k === todayKey ? "today" : "", n ? "has" : "", tone, k === FCAL.sel ? "sel" : ""].filter(Boolean).join(" ");
+    html += `<div class="${cls}" data-day="${k}" tabindex="0" role="button" aria-label="${d.toLocaleDateString(undefined, { month: "long", day: "numeric" })}: ${n} mint${n === 1 ? "" : "s"} unlock">` +
+      `<span class="dnum">${day}</span>` + (n ? `<span class="fcal-count">${nf(n)}</span><span class="fcal-amt">${fcShort(fuel)}</span>` : "") + `</div>`;
+  }
+  $("fcGrid").innerHTML = html;
+  FCAL.byDay = byDay;
+  fcDetail();
+
+  // every month with something unlocking, soonest first
+  const months = new Map();
+  for (const it of items) {
+    const k = fcMonthKey(it.when);
+    const m = months.get(k) || { k, date: new Date(it.when.getFullYear(), it.when.getMonth(), 1), n: 0, fuel: 0 };
+    m.n += it.count; m.fuel += it.fuel; months.set(k, m);
+  }
+  $("fcMonths").innerHTML = [...months.values()].sort((a, b) => a.date - b.date).map(m => {
+    const u = fcUsd(m.fuel);
+    return `<button type="button" class="fcal-mo${m.k === curKey ? " on" : ""}" data-mo="${m.k}">` +
+      `<b>${m.date.toLocaleDateString(undefined, { month: "short", year: "numeric" })}</b>` +
+      `<span class="f">≈ ${fcShort(m.fuel)} $FUEL</span><small>${nf(m.n)} mint${m.n === 1 ? "" : "s"}${u ? ` · ${u}` : ""}</small></button>`;
+  }).join("");
+}
+/* the list under the grid: the runs unlocking on the chosen day, with the day's total */
+function fcDetail() {
+  const box = $("fcDetail"), list = FCAL.sel && FCAL.byDay ? FCAL.byDay.get(FCAL.sel) : null;
+  if (!FCAL.sel) { box.innerHTML = `<span class="hint">Pick a day to see which mints unlock on it.</span>`; return; }
+  const [yy, mm, dd] = FCAL.sel.split("-").map(Number);
+  const head = new Date(yy, mm - 1, dd).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  if (!list || !list.length) { box.innerHTML = `<div class="day-head">${head}</div><span class="hint">Nothing unlocks on this day.</span>`; return; }
+  const now = nowTs();
+  const rows = list.sort((a, b) => a.r.maturityTs - b.r.maturityTs).map(it => {
+    const r = it.r, u = fcUsd(it.fuel);
+    const name = r.solo ? "Solo mint" : r.count > 1 ? `Mints #${r.start}–${r.start + r.count - 1} (${r.count})` : `Mint #${r.start}`;
+    const time = it.when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const st = it.state === "locked" ? `unlocks ${time} · in ${fuelWhen(r.maturityTs - now)}`
+      : it.state === "ready" ? `<span class="fstate ready">ready since ${time}</span>` : `<span class="fstate ${it.pen >= FUEL.K.maxPen ? "lost" : "late"}">late · −${it.pen}%</span>`;
+    return `<div class="fcal-row"><span>${name} · rank ${fuelRankText(r)} · ${Number(r.term)}d term · ${st}</span><span class="amt">≈ ${nf(it.fuel, 0)} $FUEL${u ? `<span class="usd">${u}</span>` : ""}</span></div>`;
+  }).join("");
+  const tot = list.reduce((s, it) => s + it.fuel, 0), n = list.reduce((s, it) => s + it.count, 0), tu = fcUsd(tot);
+  box.innerHTML = `<div class="day-head">${head}</div>${rows}` +
+    (list.length > 1 ? `<div class="fcal-row total"><span>${nf(n)} mints</span><span class="amt">≈ ${nf(tot, 0)} $FUEL${tu ? `<span class="usd">${tu}</span>` : ""}</span></div>` : "");
+}
+$("fcPrev").onclick = () => { FCAL.cursor = new Date(FCAL.cursor.getFullYear(), FCAL.cursor.getMonth() - 1, 1); FCAL.sel = null; fcRender(); };
+$("fcNext").onclick = () => { FCAL.cursor = new Date(FCAL.cursor.getFullYear(), FCAL.cursor.getMonth() + 1, 1); FCAL.sel = null; fcRender(); };
+$("fcToday").onclick = () => { const t = new Date(); FCAL.cursor = new Date(t.getFullYear(), t.getMonth(), 1); FCAL.sel = fcKey(t); fcRender(); };
+$("fcMonths").addEventListener("click", e => {
+  const b = e.target.closest("[data-mo]"); if (!b) return;
+  const [yy, mm] = b.dataset.mo.split("-").map(Number);
+  FCAL.cursor = new Date(yy, mm - 1, 1);
+  // open on the month's first unlock day
+  const first = fcItems().filter(it => fcMonthKey(it.when) === b.dataset.mo).sort((a, b2) => a.when - b2.when)[0];
+  FCAL.sel = first ? fcKey(first.when) : null;
+  fcRender();
+});
+/* selecting only moves the outline and swaps the list, so the grid is not rebuilt per click */
+function fcPick(k) {
+  FCAL.sel = k;
+  $("fcGrid").querySelectorAll(".fcal-cell[data-day]").forEach(c => c.classList.toggle("sel", c.dataset.day === k));
+  fcDetail();
+}
+$("fcGrid").addEventListener("click", e => { const c = e.target.closest(".fcal-cell[data-day]"); if (c) fcPick(c.dataset.day); });
+$("fcGrid").addEventListener("keydown", e => {
+  const c = e.target.closest(".fcal-cell[data-day]");
+  if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fcPick(c.dataset.day); }
+});
+
+/* the hover countdowns, every second: how long until a mint unlocks, or how long its full reward lasts */
+function fuelTimers() {
+  const now = nowTs(), can = fuelCan();
+  let matured = false;
+  document.querySelectorAll("#fMints .ftip[data-mature]").forEach(w => {
+    const left = Number(w.dataset.mature) - now, btn = w.querySelector("button");
+    if (!can) { w.dataset.timer = S.account ? "Connect the wallet that owns these mints to claim" : "Connect a wallet to claim"; return; }
+    if (left >= 0) { w.dataset.timer = `Claimable in ${fuelDur(left + 1)}`; return; }
+    const late = -left, pen = fuelPenalty(late), nextCut = 86400 - (late % 86400);
+    w.dataset.timer = pen >= FUEL.K.maxPen ? `Reward cut ${pen}% — claim what is left`
+      : pen === 0 ? `Full reward for another ${fuelDur(nextCut)}`
+      : `Reward cut ${pen}% now, ${fuelPenalty(late + nextCut)}% in ${fuelDur(nextCut)}`;
+    if (btn && btn.disabled) matured = true;
+  });
+  const wrap = $("fClaimAllWrap"), rows = fuelRows();
+  const anyReady = rows.some(r => r.maturityTs < now), next = rows.find(r => r.maturityTs >= now);
+  if (!can) wrap.dataset.timer = "Connect a wallet to claim";
+  else if (!anyReady && next) wrap.dataset.timer = `Next mint unlocks in ${fuelDur(next.maturityTs - now + 1)}`;
+  else delete wrap.dataset.timer;
+  // a mint just unlocked: redraw so its buttons turn on (not mid-transaction)
+  if (matured && !FUEL.busy) fuelRender();
+}
+
+async function fuelQuote() {
+  const n = fuelCount(), term = fuelTerm(), gp = fuelGasPrice(), btn = $("fMintBtn"), K = FUEL.K;
+  const unlockTs = nowTs() + term * 86400;
+  $("fUnlock").textContent = `Unlocks ${fuelDate(unlockTs)} · claim within a day of it for the full reward`;
+  $("fOrderUnlock").textContent = fuelDate(unlockTs);
+  const floor = FUEL.K.floor;
+  $("fGasNote").textContent = floor !== null && gp && gp <= floor ? `set by the token's ${nf(Number(E.formatUnits(floor, "gwei")), 2)} gwei minimum gas price`
+    : gp ? `at ${nf(Number(E.formatUnits(gp, "gwei")), 4)} gwei` : "—";
+  let fee = null, one = null;
+  if (gp) {
+    try {
+      const r = await mc([call(FUEL.minter, FI.minter, "batchFee", [BigInt(n), gp]), call(A.fuel, FI.token, "mintFee", [gp])]);
+      fee = dec(FI.minter, "batchFee", r[0]); one = dec(FI.token, "mintFee", r[1]);
+    } catch {}
+  }
+  const usd = w => { const u = fmtUsd(usdOf(w, S.usd.eth)); return u ? `<span class="muted">≈ ${u}</span>` : ""; };
+  const gasCost = FUEL.GAS_PER_MINT * BigInt(n) * gp;
+  $("fFee").textContent = one !== null ? fuelEth(one) : "—";
+  $("fOrderFee").innerHTML = fee !== null ? fuelEth(fee) + usd(fee) : "—";
+  $("fOrderFeeNote").textContent = fee !== null ? `${nf(n)} × ${fuelEth(one)} · sends ${fuelEth(fuelBuffer(fee))}, the extra comes back` : "—";
+  $("fOrderGas").innerHTML = gp ? "≈ " + fuelEth(gasCost) + usd(gasCost) : "—";
+  if (K.amp !== null && K.eaar !== null) {
+    const low = Number(K.amp) * term * (1000 + Number(K.eaar)) / 1000;     // log2(2) = 1: the rank barely climbs
+    const high = low * Math.log2(Math.max(Number(FUEL.rank ?? 2n), 2));    // it climbs by as much again as exists today
+    $("fOrderReward").textContent = `${nf(low * n, 0)} – ${nf(high * n, 0)}`;
+    $("fOrderHint").textContent = `${nf(low, 0)} – ${nf(high, 0)} $FUEL per mint, before any late-claim cut.`;
+  } else { $("fOrderReward").textContent = "—"; $("fOrderHint").textContent = ""; }
+  FUEL.q = fee !== null ? { n, term, gp, fee } : null;
+  const total = fee !== null ? fuelBuffer(fee) + gasCost : null;
+  if (FUEL.busy) return;
+  if (!S.signer) { btn.disabled = false; btn.textContent = "Connect wallet"; }
+  else if (fee === null) { btn.disabled = true; btn.textContent = "No fee quote right now"; }
+  else if (S.ethBal !== undefined && total !== null && S.ethBal < total) { btn.disabled = true; btn.textContent = "Not enough ETH"; }
+  else { btn.disabled = false; btn.textContent = `Mint ${nf(n)} for ${term} day${term === 1 ? "" : "s"}`; }
+}
+let fuelQuoteTimer = null;
+const fuelQuoteSoon = () => { clearTimeout(fuelQuoteTimer); fuelQuoteTimer = setTimeout(() => fuelQuote().catch(() => {}), 200); };
+
+$("fCount").addEventListener("input", fuelQuoteSoon);
+$("fCount").addEventListener("change", () => { $("fCount").value = fuelCount(); fuelQuoteSoon(); });
+$("fTerm").addEventListener("input", fuelQuoteSoon);
+$("fTerm").addEventListener("change", () => { $("fTerm").value = fuelTerm(); fuelQuoteSoon(); });
+document.querySelectorAll("#fCountQuick .pct-btn").forEach(b => b.onclick = () => { $("fCount").value = b.dataset.n; fuelQuoteSoon(); });
+document.querySelectorAll("#fTermQuick .pct-btn").forEach(b => b.onclick = () => {
+  $("fTerm").value = b.dataset.days === "max" ? FUEL.K.maxDays : b.dataset.days; fuelQuoteSoon();
+});
+makeDaypick({ input: "fTerm", btn: "fCalBtn", pop: "fCal", prev: "fPrev", month: "fMonth", next: "fNext", grid: "fGrid", foot: "fFoot",
+               min: () => FUEL.K.minDays, max: () => FUEL.K.maxDays }, fuelQuoteSoon);
+
+$("fMintBtn").onclick = async () => {
+  if (!S.signer) return connect();
+  const n = fuelCount(), term = fuelTerm();
+  FUEL.busy = true;
+  try {
+    const { gp, prio } = await fuelLiveGas();
+    const bm = new E.Contract(FUEL.minter, FABI.minter, S.signer);
+    // the next free slot number; the minter opens n new proxies from there
+    const [start, fee] = await Promise.all([bm.proxiesOf(S.account), bm.batchFee(BigInt(n), gp)]);
+    const opts = { value: fuelBuffer(fee), maxFeePerGas: gp, maxPriorityFeePerGas: prio };
+    await withTx($("fMintBtn"), `Mint of ${n} for ${term} days`, async () => {
+      const est = await bm.batchClaimRank.estimateGas(start, BigInt(n), BigInt(term), opts);
+      return bm.batchClaimRank(start, BigInt(n), BigInt(term), { ...opts, gasLimit: fuelLimit(est) });
+    });
+  } catch (e) { toast(explainError(e), "err"); }
+  finally { FUEL.busy = false; await fuelRefresh(true); }
+};
+
+/* one claim: a run of batch slots ("start:count"), or the address's own solo mint */
+async function fuelClaim(key, btn, remint) {
+  if (!S.signer) { connect(); return false; }
+  FUEL.busy = true;
+  try {
+    const { gp, prio } = await fuelLiveGas();
+    if (key === "solo") {
+      const t = new E.Contract(A.fuel, FABI.token, S.signer);
+      const opts = { value: fuelBuffer(await t.claimFee(gp)), maxFeePerGas: gp, maxPriorityFeePerGas: prio };
+      return await withTx(btn, "Claim of the solo mint", async () => t.claimMintReward({ ...opts, gasLimit: fuelLimit(await t.claimMintReward.estimateGas(opts)) }));
+    }
+    const [start, count] = key.split(":").map(x => BigInt(x));
+    const bm = new E.Contract(FUEL.minter, FABI.minter, S.signer);
+    const plural = count === 1n ? "" : "s";
+    if (remint) {
+      const term = BigInt(fuelTerm());
+      const [cf, mf] = await Promise.all([bm.batchClaimFee(count, gp), bm.batchFee(count, gp)]);
+      const opts = { value: fuelBuffer(cf + mf), maxFeePerGas: gp, maxPriorityFeePerGas: prio };
+      return await withTx(btn, `Claim + remint of ${count} mint${plural} for ${term} days`, async () =>
+        bm.batchClaimAndRemint(start, count, term, { ...opts, gasLimit: fuelLimit(await bm.batchClaimAndRemint.estimateGas(start, count, term, opts)) }));
+    }
+    const opts = { value: fuelBuffer(await bm.batchClaimFee(count, gp)), maxFeePerGas: gp, maxPriorityFeePerGas: prio };
+    return await withTx(btn, `Claim of ${count} mint${plural}`, async () =>
+      bm.batchClaimReward(start, count, { ...opts, gasLimit: fuelLimit(await bm.batchClaimReward.estimateGas(start, count, opts)) }));
+  } catch (e) { toast(explainError(e), "err"); return false; }
+  finally { FUEL.busy = false; }
+}
+$("fMints").addEventListener("click", async e => {
+  const more = e.target.closest("button[data-fmore]");
+  if (more) {
+    const k = more.dataset.fmore;
+    if (FUEL.claimOpen.has(k)) { FUEL.claimOpen.delete(k); FUEL.justOpened = null; }
+    else { FUEL.claimOpen.add(k); FUEL.justOpened = k; }
+    fuelRender();
+    FUEL.justOpened = null;   // the pop plays once, not on every later redraw
+    return;
+  }
+  const b = e.target.closest("button[data-fclaim], button[data-fremint]");
+  if (!b || b.disabled) return;
+  await fuelClaim(b.dataset.fclaim || b.dataset.fremint, b, !!b.dataset.fremint);
+  await fuelRefresh(true);
+});
+/* every unlocked run, one transaction each, stopping at the first that fails or is cancelled */
+$("fClaimAll").onclick = async () => {
+  const now = nowTs();
+  const keys = fuelRows().filter(r => r.maturityTs < now).map(r => r.solo ? "solo" : `${r.start}:${r.count}`);
+  for (const k of keys) { if (!await fuelClaim(k, $("fClaimAll"), false)) break; }
+  await fuelRefresh(true);
+};
+
+/* load when the tab opens, follow wallet changes, tick the countdowns, re-read every 30 s */
+document.querySelector('nav.tabs button[data-tab="fuel"]').addEventListener("click", () => fuelRefresh(true));
+setInterval(() => {
+  if (!$("tab-fuel").classList.contains("on")) return;
+  if (FUEL.loadedFor !== (S.account || null) && !FUEL.loading) { fuelRefresh(true); return; }
+  fuelTimers();
+}, 1000);
+setInterval(() => { if ($("tab-fuel").classList.contains("on") && !FUEL.busy) fuelRefresh(); }, 30000);
 
 boot();
 </script>
